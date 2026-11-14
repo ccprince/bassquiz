@@ -46,15 +46,25 @@ function pick<T>(items: readonly T[], random: Random): T {
 /**
  * Picks a random pitch class reachable on the string, so every note name is
  * equally likely however often it occurs on the neck.
- * Never repeats `previous` unless no other prompt is possible.
+ * Never repeats `previous` unless no other prompt is possible, and never picks
+ * an `excluded` spelling unless every spelling is excluded.
  */
-export function nextPrompt(options: PromptOptions, random: Random, previous?: Prompt): Prompt {
+export function nextPrompt(
+  options: PromptOptions,
+  random: Random,
+  previous?: Prompt,
+  excluded: readonly string[] = [],
+): Prompt {
   const { string } = options
-  const pitchClasses = pitchClassesOnString(string, fretsIn(options.range))
+  const reachable = pitchClassesOnString(string, fretsIn(options.range))
+  const allExcluded = reachable.every((pc) => spellingsOf(pc, options.accidentals).every((s) => excluded.includes(s)))
+  const spellings = (pc: PitchClass) =>
+    spellingsOf(pc, options.accidentals).filter((s) => allExcluded || !excluded.includes(s))
+  const pitchClasses = reachable.filter((pc) => spellings(pc).length > 0)
   const candidates =
     pitchClasses.length > 1 ? pitchClasses.filter((pc) => pc !== previous?.pitchClass) : pitchClasses
   const pitchClass = pick(candidates, random)
-  const spelling = pick(spellingsOf(pitchClass, options.accidentals), random)
+  const spelling = pick(spellings(pitchClass), random)
   return { string, pitchClass, spelling }
 }
 
