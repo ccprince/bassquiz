@@ -1,5 +1,6 @@
-import { type Accidentals, pitchClassOf, spellingsOf } from './notes'
-import type { Prompt } from './prompts'
+import { type Accidentals, STANDARD_TUNING, pitchClassOf, spellingsOf } from './notes'
+import { type Prompt, fretsIn, positionsOf } from './prompts'
+import { MAX_FRET } from './settings'
 
 /** A spelling as words a speech engine reads reliably: "A♯" becomes "A sharp". */
 export function spokenSpelling(spelling: string): string {
@@ -27,4 +28,41 @@ export function spokenReveal(frets: readonly number[]): string {
   const list = fretted.join(' or ')
   if (fretted.length === frets.length) return `Fret ${list}.`
   return fretted.length ? `Open or fret ${list}.` : 'Open.'
+}
+
+/** The file holding a phrase's recording: "That was G flat." is that-was-g-flat.mp3. */
+export function clipFile(phrase: string): string {
+  return `${phrase
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')}.mp3`
+}
+
+/** Everything a drill can say, each once: every prompt, every wrong answer, and every reveal on any string and fret range. */
+export function everyPhrase(): string[] {
+  const phrases = new Set<string>()
+  const string = STANDARD_TUNING[0]
+  const prompts: Prompt[] = Array.from({ length: 12 }, (_, pitchClass) =>
+    spellingsOf(pitchClass).map((spelling) => ({ string, pitchClass, spelling })),
+  ).flat()
+  for (const prompt of prompts) phrases.add(spokenPrompt(prompt))
+  for (const accidentals of ['sharps', 'flats', 'both'] as const) {
+    for (const prompt of prompts) {
+      for (let midi = 0; midi < 12; midi++) phrases.add(spokenWrong(midi, prompt, accidentals))
+    }
+  }
+  for (const s of STANDARD_TUNING) {
+    for (let from = 0; from <= MAX_FRET; from++) {
+      for (let to = from; to <= MAX_FRET; to++) {
+        for (const markedOnly of [false, true]) {
+          const frets = fretsIn({ from, to, markedOnly })
+          for (let pc = 0; pc < 12; pc++) {
+            const positions = positionsOf(pc, s, frets)
+            if (positions.length) phrases.add(spokenReveal(positions))
+          }
+        }
+      }
+    }
+  }
+  return [...phrases]
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { STANDARD_TUNING } from './notes'
 import type { Prompt } from './prompts'
-import { spokenPrompt, spokenReveal, spokenSpelling, spokenWrong } from './spoken'
+import { clipFile, everyPhrase, spokenPrompt, spokenReveal, spokenSpelling, spokenWrong } from './spoken'
 
 const [E] = STANDARD_TUNING
 
@@ -50,5 +50,32 @@ describe('spokenReveal', () => {
   it('names the open string', () => {
     expect(spokenReveal([0])).toBe('Open.')
     expect(spokenReveal([0, 12, 24])).toBe('Open or fret 12 or 24.')
+  })
+})
+
+describe('clipFile', () => {
+  it('names a clip after its phrase', () => {
+    expect(clipFile('That was G flat.')).toBe('that-was-g-flat.mp3')
+    expect(clipFile('Open or fret 12 or 24.')).toBe('open-or-fret-12-or-24.mp3')
+  })
+})
+
+describe('everyPhrase', () => {
+  const phrases = everyPhrase()
+
+  it('covers every prompt, wrong answer and reveal', () => {
+    expect(phrases).toContain('A sharp.')
+    expect(phrases.filter((p) => p.startsWith('That was'))).toHaveLength(17)
+    expect(phrases.filter((p) => p.startsWith('Fret') || p.startsWith('Open'))).toHaveLength(39)
+    expect(phrases).toHaveLength(17 + 17 + 39)
+  })
+
+  it('gives every phrase its own clip', () => {
+    expect(new Set(phrases.map(clipFile)).size).toBe(phrases.length)
+  })
+
+  it('has a recording of every phrase; run `npm run clips` if not', () => {
+    const recorded = Object.keys(import.meta.glob('../../public/clips/*.mp3')).map((path) => path.split('/').pop())
+    expect(phrases.map(clipFile).filter((file) => !recorded.includes(file))).toEqual([])
   })
 })

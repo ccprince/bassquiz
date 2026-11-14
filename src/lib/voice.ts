@@ -1,3 +1,5 @@
+import { clipFile, everyPhrase } from './spoken'
+
 /** Frequencies of a chime's tones, played in turn; high above the bass so they're easy to tell apart. */
 export const CORRECT_CHIME: readonly number[] = [1318.5] // E6
 export const FINISHED_CHIME: readonly number[] = [1046.5, 1318.5, 1568] // C6 E6 G6
@@ -5,68 +7,67 @@ export const FINISHED_CHIME: readonly number[] = [1046.5, 1318.5, 1568] // C6 E6
 const TONE_GAP_S = 0.12
 const TONE_RING_S = 0.4
 /**
- * Room echo after the app falls silent, which the mic may still pick up. Kept short: a stray pitch in the
- * echo would need to hold steady to be an answer.
+ * How long after the app falls silent before answers resume: long enough for the pitch tracker's buffer
+ * (about 85 ms) to hold only what was played since, as a note held steady through the speech is answered on
+ * the very next frame.
  */
-const TAIL_MS = 50
-/** In case a browser never reports that speech ended, so the drill can't get stuck waiting. */
-const SPEECH_TIMEOUT_MS = 6000
-
-export function canSpeak(): boolean {
-  return typeof window !== 'undefined' && 'speechSynthesis' in window && 'AudioContext' in window
-}
+const TAIL_MS = 100
 
 /**
- * Says spoken prompts and plays chimes, one sound at a time: a new one cuts off the last. The mic hears all
- * of it, so `onLoud` is called when the app starts making sound, and `onQuiet` once it and its echo have died
- * away.
+ * Says spoken prompts, from recordings in public/clips, and plays chimes, one sound at a time: a new one cuts
+ * off the last. The mic hears all of it, so `onLoud` is called when the app starts making sound, and `onQuiet`
+ * once it and its echo have died away.
  */
 export class Voice {
   private sounding = false
 
   private generation = 0
-  private context: AudioContext | null = null
-  private oscillators: OscillatorNode[] = []
-  private utterance: SpeechSynthesisUtterance | null = null
-  private timers: ReturnType<typeof setTimeout>[] = []
+  private readonly context = new AudioContext()
+  /** Every recording, loaded up front so none has to wait to download. */
+  private readonly clips = loadClips(this.context)
+  private playing: AudioScheduledSourceNode[] = []
+  private tail: ReturnType<typeof setTimeout> | undefined
 
   constructor(
     private readonly onLoud: () => void,
     private readonly onQuiet: () => void,
   ) {}
 
-  say(text: string): void {
+  say(phrase: string): void {
     const generation = this.begin()
-    // Kept on `this` because some browsers drop events for an utterance that's been garbage collected.
-    const utterance = (this.utterance = new SpeechSynthesisUtterance(text))
-    const voice = englishVoice()
-    if (voice) utterance.voice = voice
-    utterance.onend = utterance.onerror = () => this.end(generation)
-    this.timers.push(setTimeout(() => this.end(generation), SPEECH_TIMEOUT_MS))
-    speechSynthesis.speak(utterance)
+    void this.clips.then((clips) => {
+      if (generation !== this.generation) return
+      const clip = clips.get(phrase)
+      if (!clip) {
+        console.warn(`No recording of "${phrase}"`)
+        this.end(generation)
+        return
+      }
+      const source = this.context.createBufferSource()
+      source.buffer = clip
+      source.connect(this.context.destination)
+      source.start()
+      this.play([source], generation)
+    })
   }
 
   chime(tones: readonly number[]): void {
     const generation = this.begin()
-    this.context ??= new AudioContext()
-    const context = this.context
-    void context.resume()
-    const start = context.currentTime + 0.02
-    tones.forEach((hz, i) => {
+    const start = this.context.currentTime + 0.02
+    const oscillators = tones.map((hz, i) => {
       const at = start + i * TONE_GAP_S
-      const oscillator = context.createOscillator()
-      const gain = context.createGain()
+      const oscillator = this.context.createOscillator()
+      const gain = this.context.createGain()
       oscillator.frequency.value = hz
       gain.gain.setValueAtTime(0, at)
       gain.gain.linearRampToValueAtTime(0.3, at + 0.01)
       gain.gain.exponentialRampToValueAtTime(0.001, at + TONE_RING_S)
-      oscillator.connect(gain).connect(context.destination)
+      oscillator.connect(gain).connect(this.context.destination)
       oscillator.start(at)
       oscillator.stop(at + TONE_RING_S)
-      this.oscillators.push(oscillator)
+      return oscillator
     })
-    const lengthMs = ((tones.length - 1) * TONE_GAP_S + TONE_RING_S + 0.02) * 1000
-    this.timers.push(setTimeout(() => this.end(generation), lengthMs))
+    this.play(oscillators, generation)
   }
 
   /** Silences everything for good. */
@@ -74,8 +75,14 @@ export class Voice {
     this.silence()
     this.generation++
     if (this.sounding) this.quiet()
-    void this.context?.close()
-    this.context = null
+    void this.context.close()
+  }
+
+  /** Tracks sound already started or scheduled; the last node to finish ends it. */
+  private play(nodes: AudioScheduledSourceNode[], generation: number): void {
+    void this.context.resume()
+    this.playing = nodes
+    nodes[nodes.length - 1].onended = () => this.end(generation)
   }
 
   private begin(): number {
@@ -90,8 +97,7 @@ export class Voice {
   private end(generation: number): void {
     if (generation !== this.generation) return
     this.generation++
-    this.timers.forEach(clearTimeout)
-    this.timers = [setTimeout(() => this.quiet(), TAIL_MS)]
+    this.tail = setTimeout(() => this.quiet(), TAIL_MS)
   }
 
   private quiet(): void {
@@ -100,19 +106,24 @@ export class Voice {
   }
 
   private silence(): void {
-    speechSynthesis.cancel()
-    this.utterance = null
-    this.oscillators.forEach((o) => o.stop())
-    this.oscillators = []
-    this.timers.forEach(clearTimeout)
-    this.timers = []
+    this.playing.forEach((node) => node.stop())
+    this.playing = []
+    clearTimeout(this.tail)
   }
 }
 
-/** The default voice, unless it isn't English, then the first English one. Null leaves it to the browser. */
-function englishVoice(): SpeechSynthesisVoice | null {
-  const voices = speechSynthesis.getVoices()
-  const fallback = voices.find((v) => v.default)
-  if (!fallback || fallback.lang.startsWith('en')) return null
-  return voices.find((v) => v.lang.startsWith('en')) ?? null
+async function loadClips(context: AudioContext): Promise<Map<string, AudioBuffer>> {
+  const clips = new Map<string, AudioBuffer>()
+  await Promise.all(
+    everyPhrase().map(async (phrase) => {
+      try {
+        const response = await fetch(`clips/${clipFile(phrase)}`)
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
+        clips.set(phrase, await context.decodeAudioData(await response.arrayBuffer()))
+      } catch (e) {
+        console.warn(`Couldn't load the recording of "${phrase}":`, e)
+      }
+    }),
+  )
+  return clips
 }

@@ -109,13 +109,13 @@ export class AttackDetector {
   }
 
   /**
-   * Answers again, judging afresh whatever is sounding now: a note plucked while paused counts once it holds
-   * steady. Only the note that was already ringing when the pause began stays judged.
+   * Answers again, judging afresh whatever is sounding now: a note plucked while paused counts as soon as it
+   * has held steady, including any time it held steady while paused. Only the note that was already ringing
+   * when the pause began stays judged.
    */
   resume(): void {
     if (!this.paused) return
     this.paused = false
-    this.candidate = null
     this.judged = this.held
     this.held = null
   }

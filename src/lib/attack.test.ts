@@ -138,6 +138,26 @@ describe('AttackDetector', () => {
     expect(answers.map((a) => a.midi)).toEqual([45])
   })
 
+  it('on resuming, answers at once a note that held steady while paused', () => {
+    const d = new AttackDetector({ gate: GATE })
+    feedAll(d, frames(0, 5, 0, null))
+    d.pause()
+    feedAll(d, frames(100, 10, decaying(0.5), 45)) // 200 ms, longer than the stability window
+    d.resume()
+    expect(d.feed({ time: 300, level: 0.4, midi: 45 })).toEqual({ midi: 45, cents: 0 })
+  })
+
+  it('on resuming, waits out the rest of the stability window for a note plucked just before', () => {
+    const d = new AttackDetector({ gate: GATE, stableMs: 150 })
+    feedAll(d, frames(0, 5, 0, null))
+    d.pause()
+    feedAll(d, frames(100, 3, decaying(0.5), 45)) // 60 ms
+    d.resume()
+    expect(feedAll(d, frames(160, 4, (i) => decaying(0.5)(i + 3), 45))).toEqual([]) // up to 220 ms
+    expect(feedAll(d, frames(240, 1, 0.4, 45))).toEqual([]) // 140 ms steady
+    expect(feedAll(d, frames(260, 1, 0.4, 45))).toEqual([{ midi: 45, cents: 0 }])
+  })
+
   it('on resuming, still ignores the note ringing when the pause began', () => {
     const d = new AttackDetector({ gate: GATE })
     feedAll(d, [...frames(0, 5, 0, null), ...frames(100, 20, decaying(0.5), 45)])

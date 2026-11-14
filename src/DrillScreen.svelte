@@ -7,7 +7,7 @@
   import type { FinishedDrill } from './lib/results'
   import type { Settings } from './lib/settings'
   import { spokenPrompt, spokenReveal, spokenWrong } from './lib/spoken'
-  import { CORRECT_CHIME, FINISHED_CHIME, Voice, canSpeak } from './lib/voice'
+  import { CORRECT_CHIME, FINISHED_CHIME, Voice } from './lib/voice'
   import Fretboard from './Fretboard.svelte'
   import Heard from './Heard.svelte'
   import LevelMeter from './LevelMeter.svelte'
@@ -42,13 +42,12 @@
   const startedAt = performance.now()
   let drill = $state(start(options, Math.random, startedAt))
   let advanceTimer: ReturnType<typeof setTimeout> | undefined
-  const voice =
-    untrack(() => settings.spokenPrompts) && canSpeak()
-      ? new Voice(
-          () => pauseAnswers(),
-          () => resumeAnswers(),
-        )
-      : null
+  const voice = untrack(() => settings.spokenPrompts)
+    ? new Voice(
+        () => pauseAnswers(),
+        () => resumeAnswers(),
+      )
+    : null
 
   const positions = $derived(positionsOf(drill.prompt.pitchClass, drill.prompt.string, fretsIn(options.range)))
   const showFretboard = $derived(drill.status === 'correct' || drill.status === 'revealed')
