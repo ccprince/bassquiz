@@ -1,0 +1,122 @@
+:root {
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --surface-2: #e4e1da;
+  --text: #1d1b18;
+  --muted: #77726a;
+  --accent: #2f6fdb;
+  --correct: #1f8a4c;
+  --wrong: #c2412d;
+
+  color-scheme: light dark;
+  font: 18px/1.45 system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171a;
+    --surface: #1f2226;
+    --surface-2: #33373d;
+    --text: #eceae6;
+    --muted: #8e939b;
+    --accent: #5b95f5;
+    --correct: #4cc27f;
+    --wrong: #f07a63;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.screen {
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+
+h1 {
+  font-size: 1.75rem;
+  margin: 0 0 1.5rem;
+}
+
+h2 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0 0 0.5rem;
+}
+
+section {
+  background: var(--surface);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+button,
+select {
+  font: inherit;
+  color: inherit;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.6rem 1.1rem;
+  cursor: pointer;
+}
+
+button.primary {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  font-size: 1.15rem;
+  padding: 0.9rem;
+}
+
+button.secondary,
+select {
+  background: var(--surface-2);
+}
+
+button.toggle {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+button.toggle[aria-pressed='true'] {
+  background: var(--accent);
+  color: #fff;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+input[type='checkbox'] {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--accent);
+}
+
+input[type='range'] {
+  accent-color: var(--accent);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 0.85rem;
+}
+
+p {
+  margin: 0.5rem 0 0;
+}
