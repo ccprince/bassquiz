@@ -113,6 +113,17 @@ describe('nextPrompt', () => {
     expect(flat.spelling).toBe('D♭')
   })
 
+  it.each([
+    ['sharps', '♯'],
+    ['flats', '♭'],
+  ] as const)('spells accidentals with %s only when asked', (accidentals, symbol) => {
+    const random = seeded(7)
+    for (let i = 0; i < 200; i++) {
+      const p = nextPrompt({ strings: [E, A, D, G], range: fullNeck, accidentals }, random)
+      if (p.spelling.length > 1) expect(p.spelling).toContain(symbol)
+    }
+  })
+
   it('never repeats the previous prompt', () => {
     const random = seeded(5)
     const options = { strings: [E, A], range: { kind: 'span', from: 0, to: 2 } } as const

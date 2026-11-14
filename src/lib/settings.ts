@@ -1,4 +1,4 @@
-import { STANDARD_TUNING } from './notes'
+import { type Accidentals, STANDARD_TUNING } from './notes'
 import type { FretRange } from './prompts'
 
 export const MAX_FRET = 21
@@ -7,6 +7,7 @@ export interface Settings {
   /** Names of the active strings. */
   activeStrings: string[]
   range: FretRange
+  accidentals: Accidentals
   /** Input level below which sound counts as silence. */
   gate: number
 }
@@ -14,6 +15,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   activeStrings: STANDARD_TUNING.map((s) => s.name),
   range: { kind: 'span', from: 0, to: MAX_FRET },
+  accidentals: 'both',
   gate: 0.01,
 }
 
@@ -44,6 +46,10 @@ function isFretRange(value: unknown): value is FretRange {
   )
 }
 
+function isAccidentals(value: unknown): value is Accidentals {
+  return value === 'sharps' || value === 'flats' || value === 'both'
+}
+
 function isGate(value: unknown): value is number {
   return typeof value === 'number' && value > 0 && value < 1
 }
@@ -58,6 +64,7 @@ export function loadSettings(storage: Storage): Settings {
   return {
     activeStrings: isActiveStrings(stored.activeStrings) ? stored.activeStrings : DEFAULT_SETTINGS.activeStrings,
     range: isFretRange(stored.range) ? stored.range : DEFAULT_SETTINGS.range,
+    accidentals: isAccidentals(stored.accidentals) ? stored.accidentals : DEFAULT_SETTINGS.accidentals,
     gate: isGate(stored.gate) ? stored.gate : DEFAULT_SETTINGS.gate,
   }
 }

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Frame } from './lib/attack'
-  import { STANDARD_TUNING } from './lib/notes'
+  import { type Accidentals, STANDARD_TUNING } from './lib/notes'
   import { MAX_FRET, type Settings } from './lib/settings'
   import Heard from './Heard.svelte'
   import LevelMeter from './LevelMeter.svelte'
@@ -15,6 +15,12 @@
   }
 
   let { settings = $bindable(), frame, listening, micError, onlisten, onstart }: Props = $props()
+
+  const ACCIDENTALS: { value: Accidentals; label: string }[] = [
+    { value: 'sharps', label: '♯ Sharps' },
+    { value: 'flats', label: '♭ Flats' },
+    { value: 'both', label: 'Both' },
+  ]
 
   const frets = Array.from({ length: MAX_FRET + 1 }, (_, f) => f)
 
@@ -93,10 +99,25 @@
   </section>
 
   <section>
+    <h2>Accidentals</h2>
+    <div class="choices">
+      {#each ACCIDENTALS as choice (choice.value)}
+        <button
+          class="toggle"
+          aria-pressed={settings.accidentals === choice.value}
+          onclick={() => (settings.accidentals = choice.value)}
+        >
+          {choice.label}
+        </button>
+      {/each}
+    </div>
+  </section>
+
+  <section>
     <h2>Input</h2>
     {#if listening}
       <LevelMeter level={frame?.level ?? 0} gate={settings.gate} />
-      <p class="muted">Heard: <Heard {frame} gate={settings.gate} /></p>
+      <p class="muted">Heard: <Heard {frame} gate={settings.gate} accidentals={settings.accidentals} /></p>
     {:else}
       <button class="secondary" onclick={onlisten}>Check input</button>
     {/if}
@@ -124,8 +145,10 @@
 </div>
 
 <style>
-  .strings {
+  .strings,
+  .choices {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
   }
   .toggle {

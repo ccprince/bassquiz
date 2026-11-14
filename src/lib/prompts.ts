@@ -1,4 +1,4 @@
-import { type BassString, type PitchClass, pitchClassOf, spellingsOf } from './notes'
+import { type Accidentals, type BassString, type PitchClass, pitchClassOf, spellingsOf } from './notes'
 
 export const MARKED_FRETS: readonly number[] = [3, 5, 7, 9, 12, 15, 17, 19, 21]
 
@@ -13,6 +13,8 @@ export interface Prompt {
 export interface PromptOptions {
   strings: readonly BassString[]
   range: FretRange
+  /** Defaults to both spellings. */
+  accidentals?: Accidentals
 }
 
 export type Random = () => number
@@ -50,7 +52,7 @@ export function nextPrompt(options: PromptOptions, random: Random, previous?: Pr
   for (;;) {
     const string = pick(options.strings, random)
     const pitchClass = pick(pitchClassesOnString(string, frets), random)
-    const spelling = pick(spellingsOf(pitchClass), random)
+    const spelling = pick(spellingsOf(pitchClass, options.accidentals), random)
     const repeat = previous?.string.name === string.name && previous.pitchClass === pitchClass
     if (!repeat || possible === 1) return { string, pitchClass, spelling }
   }

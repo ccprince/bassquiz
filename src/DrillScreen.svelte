@@ -25,6 +25,7 @@
   const options = untrack(() => ({
     strings: STANDARD_TUNING.filter((s) => settings.activeStrings.includes(s.name)),
     range: settings.range,
+    accidentals: settings.accidentals,
   }))
 
   let drill = $state(start(options, Math.random))
@@ -57,7 +58,7 @@
     <button class="secondary" onclick={onstop}>Stop</button>
     <div class="input">
       <LevelMeter level={frame?.level ?? 0} gate={settings.gate} />
-      <span class="muted small">Heard: <Heard {frame} gate={settings.gate} /></span>
+      <span class="muted small">Heard: <Heard {frame} gate={settings.gate} accidentals={options.accidentals} /></span>
     </div>
   </header>
 
@@ -70,7 +71,7 @@
     {#if drill.status === 'correct'}
       ✓ Correct
     {:else if drill.heard}
-      ✗ You played {noteName(drill.heard.midi)}
+      ✗ You played {noteName(drill.heard.midi, options.accidentals)}
     {:else if drill.status === 'revealed'}
       Play it to continue
     {:else}

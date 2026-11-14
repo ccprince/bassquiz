@@ -26,12 +26,28 @@ describe('spellingsOf', () => {
     expect(spellingsOf(10)).toEqual(['A♯', 'B♭'])
     expect(spellingsOf(1)).toEqual(['C♯', 'D♭'])
   })
+
+  it('can limit accidentals to sharps or flats', () => {
+    expect(spellingsOf(10, 'sharps')).toEqual(['A♯'])
+    expect(spellingsOf(10, 'flats')).toEqual(['B♭'])
+    expect(spellingsOf(10, 'both')).toEqual(['A♯', 'B♭'])
+  })
+
+  it('leaves naturals alone whatever the accidentals', () => {
+    expect(spellingsOf(9, 'sharps')).toEqual(['A'])
+    expect(spellingsOf(9, 'flats')).toEqual(['A'])
+  })
 })
 
 describe('noteName', () => {
   it('names a MIDI note by pitch class using both spellings for accidentals', () => {
     expect(noteName(33)).toBe('A')
     expect(noteName(34)).toBe('A♯/B♭')
+  })
+
+  it('follows the chosen accidentals', () => {
+    expect(noteName(34, 'sharps')).toBe('A♯')
+    expect(noteName(34, 'flats')).toBe('B♭')
   })
 })
 

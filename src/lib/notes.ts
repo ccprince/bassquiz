@@ -1,6 +1,9 @@
 /** A pitch class, 0–11 with C = 0. */
 export type PitchClass = number
 
+/** Which spellings to use for accidentals. */
+export type Accidentals = 'sharps' | 'flats' | 'both'
+
 export interface BassString {
   /** The note name of the open string, which is also how the string is named. */
   name: string
@@ -38,12 +41,15 @@ export function pitchClassOf(midi: number): PitchClass {
   return ((midi % 12) + 12) % 12
 }
 
-export function spellingsOf(pc: PitchClass): readonly string[] {
-  return SPELLINGS[pc]
+/** Spellings of a pitch class; an accidental has a sharp spelling first, then a flat one. */
+export function spellingsOf(pc: PitchClass, accidentals: Accidentals = 'both'): readonly string[] {
+  const spellings = SPELLINGS[pc]
+  if (spellings.length === 1 || accidentals === 'both') return spellings
+  return [accidentals === 'sharps' ? spellings[0] : spellings[1]]
 }
 
-export function noteName(midi: number): string {
-  return spellingsOf(pitchClassOf(midi)).join('/')
+export function noteName(midi: number, accidentals: Accidentals = 'both'): string {
+  return spellingsOf(pitchClassOf(midi), accidentals).join('/')
 }
 
 export function frequencyToMidi(hz: number): number {
