@@ -31,6 +31,10 @@ The written name used for a pitch class. Enharmonic spellings (A♯ / B♭) name
 A request to play a named pitch class on a named string, e.g. "A on the E string".
 _Avoid_: Question, challenge
 
+**Spoken prompt**:
+A prompt said aloud, so the player needn't watch the screen. It names only the spelling ("A sharp"); the player already knows the active string. A drill with spoken prompts also gives its feedback as sound: a chime when right, the note played when wrong, the fret when revealed, and a closing chime when a limited drill finishes. Sound the app makes is never taken as an answer.
+_Avoid_: Audio prompt, TTS, narration
+
 **Answer**:
 The note the player plays in response to a prompt; correct when its pitch class matches the prompt's. The string is taken on trust.
 

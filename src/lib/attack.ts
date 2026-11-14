@@ -45,6 +45,9 @@ export class AttackDetector {
   private lastSemitone: number | null = null
   /** The semitone already judged for the current attack, if any. */
   private judged: number | null = null
+  /** While paused, the semitone that was ringing when the pause began, if any. */
+  private held: number | null = null
+  private paused = false
 
   constructor(options: AttackDetectorOptions) {
     this.gate = options.gate
@@ -87,12 +90,38 @@ export class AttackDetector {
     if (frame.time - this.candidate.since < this.stableMs || this.judged === semitone) return null
 
     this.judged = semitone
-    return { midi: semitone, cents: (frame.midi - semitone) * 100 }
+    return this.paused ? null : { midi: semitone, cents: (frame.midi - semitone) * 100 }
   }
 
   /** Treats whatever is currently sounding as already judged, e.g. when a new prompt appears. */
   ignoreCurrent(): void {
-    if (this.sounding) this.judged = this.candidate?.semitone ?? this.lastSemitone
+    this.judged = this.ringing()
+  }
+
+  /**
+   * Gives no answers until `resume`, e.g. while the app's own sound reaches the mic. Pausing again before
+   * resuming changes nothing.
+   */
+  pause(): void {
+    if (this.paused) return
+    this.paused = true
+    this.held = this.ringing()
+  }
+
+  /**
+   * Answers again, judging afresh whatever is sounding now: a note plucked while paused counts once it holds
+   * steady. Only the note that was already ringing when the pause began stays judged.
+   */
+  resume(): void {
+    if (!this.paused) return
+    this.paused = false
+    this.candidate = null
+    this.judged = this.held
+    this.held = null
+  }
+
+  private ringing(): number | null {
+    return this.sounding ? (this.candidate?.semitone ?? this.lastSemitone) : null
   }
 
   private recentMinLevel(now: number): number {

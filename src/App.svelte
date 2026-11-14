@@ -81,6 +81,8 @@
       {frame}
       {onAnswer}
       ignoreCurrent={() => detector.ignoreCurrent()}
+      pauseAnswers={() => detector.pause()}
+      resumeAnswers={() => detector.resume()}
       onstop={stopDrill}
     />
   {/if}

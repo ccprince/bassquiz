@@ -121,6 +121,43 @@ describe('AttackDetector', () => {
     expect(answers.map((a) => a.midi)).toEqual([45])
   })
 
+  it('gives no answers while paused', () => {
+    const d = new AttackDetector({ gate: GATE })
+    d.pause()
+    const answers = feedAll(d, [...frames(0, 5, 0, null), ...frames(100, 20, decaying(0.5), 45)])
+    expect(answers).toEqual([])
+  })
+
+  it('on resuming, answers a note plucked while paused', () => {
+    const d = new AttackDetector({ gate: GATE })
+    feedAll(d, frames(0, 5, 0, null))
+    d.pause()
+    feedAll(d, [...frames(100, 10, 0.2, 60), ...frames(300, 10, decaying(0.5), 45)]) // speech, then a pluck
+    d.resume()
+    const answers = feedAll(d, frames(500, 20, (i) => decaying(0.5)(i + 10), 45))
+    expect(answers.map((a) => a.midi)).toEqual([45])
+  })
+
+  it('on resuming, still ignores the note ringing when the pause began', () => {
+    const d = new AttackDetector({ gate: GATE })
+    feedAll(d, [...frames(0, 5, 0, null), ...frames(100, 20, decaying(0.5), 45)])
+    d.pause()
+    feedAll(d, frames(500, 10, (i) => decaying(0.5)(i + 20) + 0.3, 45)) // speech over the ringing note
+    d.resume()
+    const answers = feedAll(d, frames(700, 30, (i) => decaying(0.5)(i + 30), 45))
+    expect(answers).toEqual([])
+  })
+
+  it('on resuming, answers a new note plucked over the one ringing when the pause began', () => {
+    const d = new AttackDetector({ gate: GATE })
+    feedAll(d, [...frames(0, 5, 0, null), ...frames(100, 20, decaying(0.5), 45)])
+    d.pause()
+    feedAll(d, frames(500, 10, decaying(0.6), 47))
+    d.resume()
+    const answers = feedAll(d, frames(700, 20, (i) => decaying(0.6)(i + 10), 47))
+    expect(answers.map((a) => a.midi)).toEqual([47])
+  })
+
   it('lets the gate be changed while running', () => {
     const d = new AttackDetector({ gate: GATE })
     d.gate = 0.6

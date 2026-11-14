@@ -15,6 +15,8 @@ export interface Settings {
   rounds: number | null
   /** Input level below which sound counts as silence. */
   gate: number
+  /** Whether drills speak their prompts and give feedback as sound. */
+  spokenPrompts: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -23,6 +25,7 @@ export const DEFAULT_SETTINGS: Settings = {
   accidentals: 'both',
   rounds: null,
   gate: 0.01,
+  spokenPrompts: false,
 }
 
 const KEY = 'bassquiz.settings'
@@ -74,6 +77,7 @@ export function loadSettings(storage: Storage): Settings {
     accidentals: isAccidentals(stored.accidentals) ? stored.accidentals : DEFAULT_SETTINGS.accidentals,
     rounds: isRounds(stored.rounds) ? stored.rounds : DEFAULT_SETTINGS.rounds,
     gate: isGate(stored.gate) ? stored.gate : DEFAULT_SETTINGS.gate,
+    spokenPrompts: typeof stored.spokenPrompts === 'boolean' ? stored.spokenPrompts : DEFAULT_SETTINGS.spokenPrompts,
   }
 }
 

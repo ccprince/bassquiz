@@ -6,6 +6,8 @@
   import { fretsIn, positionsOf } from './lib/prompts'
   import type { FinishedDrill } from './lib/results'
   import type { Settings } from './lib/settings'
+  import { spokenPrompt, spokenReveal, spokenWrong } from './lib/spoken'
+  import { CORRECT_CHIME, FINISHED_CHIME, Voice, canSpeak } from './lib/voice'
   import Fretboard from './Fretboard.svelte'
   import Heard from './Heard.svelte'
   import LevelMeter from './LevelMeter.svelte'
@@ -15,10 +17,13 @@
     frame: Frame | null
     onAnswer: (handler: (answer: Answer) => void) => () => void
     ignoreCurrent: () => void
+    /** Holds back answers while the app's own sound reaches the mic. */
+    pauseAnswers: () => void
+    resumeAnswers: () => void
     onstop: (drill: FinishedDrill) => void
   }
 
-  let { settings, frame, onAnswer, ignoreCurrent, onstop }: Props = $props()
+  let { settings, frame, onAnswer, ignoreCurrent, pauseAnswers, resumeAnswers, onstop }: Props = $props()
 
   const ADVANCE_MS = 1500
 
@@ -37,20 +42,36 @@
   const startedAt = performance.now()
   let drill = $state(start(options, Math.random, startedAt))
   let advanceTimer: ReturnType<typeof setTimeout> | undefined
+  const voice =
+    untrack(() => settings.spokenPrompts) && canSpeak()
+      ? new Voice(
+          () => pauseAnswers(),
+          () => resumeAnswers(),
+        )
+      : null
 
   const positions = $derived(positionsOf(drill.prompt.pitchClass, drill.prompt.string, fretsIn(options.range)))
   const showFretboard = $derived(drill.status === 'correct' || drill.status === 'revealed')
 
   onMount(() => {
     ignoreCurrent()
+    voice?.say(spokenPrompt(drill.prompt))
     const unsubscribe = onAnswer((heard) => {
       if (drill.status === 'correct') return
+      const prompt = drill.prompt
       drill = answer(drill, heard, performance.now())
-      if (drill.status === 'correct') advanceTimer = setTimeout(isFinished(drill, options) ? stop : advance, ADVANCE_MS)
+      if (drill.status === 'correct') {
+        const finished = isFinished(drill, options)
+        voice?.chime(finished ? FINISHED_CHIME : CORRECT_CHIME)
+        advanceTimer = setTimeout(finished ? stop : advance, ADVANCE_MS)
+      } else {
+        voice?.say(spokenWrong(heard.midi, prompt, options.accidentals))
+      }
     })
     return () => {
       unsubscribe()
       clearTimeout(advanceTimer)
+      voice?.close()
     }
   })
 
@@ -61,6 +82,12 @@
   function advance() {
     drill = next(drill, options, Math.random, performance.now())
     ignoreCurrent()
+    voice?.say(spokenPrompt(drill.prompt))
+  }
+
+  function showReveal() {
+    drill = reveal(drill)
+    voice?.say(spokenReveal(positions))
   }
 </script>
 
@@ -114,7 +141,7 @@
     {/if}
   </div>
 
-  <button class="secondary reveal" onclick={() => (drill = reveal(drill))} disabled={drill.status !== 'waiting' && drill.status !== 'wrong'}>
+  <button class="secondary reveal" onclick={showReveal} disabled={drill.status !== 'waiting' && drill.status !== 'wrong'}>
     Reveal
   </button>
 </div>

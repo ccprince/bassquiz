@@ -18,6 +18,7 @@ const custom: Settings = {
   accidentals: 'flats',
   rounds: 3,
   gate: 0.03,
+  spokenPrompts: true,
 }
 
 describe('settings', () => {
@@ -26,6 +27,7 @@ describe('settings', () => {
     expect(DEFAULT_SETTINGS.range).toEqual({ from: 0, to: 24, markedOnly: false })
     expect(DEFAULT_SETTINGS.accidentals).toBe('both')
     expect(DEFAULT_SETTINGS.rounds).toBeNull()
+    expect(DEFAULT_SETTINGS.spokenPrompts).toBe(false)
   })
 
   it('round-trips through storage', () => {
@@ -55,6 +57,7 @@ describe('settings', () => {
       accidentals: 'naturals',
       rounds: 4,
       gate: 'loud',
+      spokenPrompts: 'yes',
     })
     expect(loadSettings(memoryStorage({ 'bassquiz.settings': stored }))).toEqual({
       ...DEFAULT_SETTINGS,

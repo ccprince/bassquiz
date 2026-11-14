@@ -3,6 +3,7 @@
   import { type Accidentals, STANDARD_TUNING } from './lib/notes'
   import { fretsIn, roundOf } from './lib/prompts'
   import { MAX_FRET, ROUND_CHOICES, type Settings } from './lib/settings'
+  import { canSpeak } from './lib/voice'
   import Heard from './Heard.svelte'
   import LevelMeter from './LevelMeter.svelte'
 
@@ -38,7 +39,9 @@
     }).length,
   )
 
-  const gateDb = $derived(Math.round(20 * Math.log10(settings.gate)))
+  const speakable = canSpeak()
+
+  const gateDb =$derived(Math.round(20 * Math.log10(settings.gate)))
 </script>
 
 <div class="screen">
@@ -120,6 +123,22 @@
       {:else}
         {settings.rounds} {settings.rounds === 1 ? 'round' : 'rounds'}. Each round asks all {roundSize} notes once;
         missed notes come back as extra prompts.
+      {/if}
+    </p>
+  </section>
+
+  <section>
+    <h2>Sound</h2>
+    <label class="check">
+      <input type="checkbox" bind:checked={settings.spokenPrompts} disabled={!speakable} />
+      Spoken prompts
+    </label>
+    <p class="muted small">
+      {#if speakable}
+        Hear each note named, and hear whether you got it right, so you can keep your eyes on the bass. Notes played
+        while it speaks don't count.
+      {:else}
+        Not supported in this browser.
       {/if}
     </p>
   </section>
