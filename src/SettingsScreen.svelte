@@ -24,14 +24,6 @@
 
   const frets = Array.from({ length: MAX_FRET + 1 }, (_, f) => f)
 
-  function toggleString(name: string) {
-    const active = settings.activeStrings.includes(name)
-    if (active && settings.activeStrings.length === 1) return
-    settings.activeStrings = STANDARD_TUNING.map((s) => s.name).filter(
-      (n) => (n === name ? !active : settings.activeStrings.includes(n)),
-    )
-  }
-
   // Remember the span while "marked frets only" is on, so switching back restores it.
   let span = $state(
     settings.range.kind === 'span' ? { from: settings.range.from, to: settings.range.to } : { from: 0, to: MAX_FRET },
@@ -53,13 +45,13 @@
   <h1>Fretboard drill</h1>
 
   <section>
-    <h2>Strings</h2>
+    <h2>String</h2>
     <div class="strings">
       {#each [...STANDARD_TUNING].reverse() as string (string.name)}
         <button
           class="toggle"
-          aria-pressed={settings.activeStrings.includes(string.name)}
-          onclick={() => toggleString(string.name)}
+          aria-pressed={settings.activeString === string.name}
+          onclick={() => (settings.activeString = string.name)}
         >
           {string.name}
         </button>

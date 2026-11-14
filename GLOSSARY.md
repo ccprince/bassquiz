@@ -42,8 +42,8 @@ _Avoid_: Practice session, exercise
 A fixed-length, scored run of prompts. (Future.)
 _Avoid_: Test, exam
 
-**Active strings**:
-The strings a drill draws prompts from, chosen by the player.
+**Active string**:
+The one string a drill draws prompts from, chosen by the player. Only one, because the app can't tell which string a note was played on.
 
 **Fret range**:
 The frets a drill draws prompts from: either a contiguous span (default 0–21) or the marked frets only.

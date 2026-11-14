@@ -11,7 +11,7 @@ export interface Prompt {
 }
 
 export interface PromptOptions {
-  strings: readonly BassString[]
+  string: BassString
   range: FretRange
   /** Defaults to both spellings. */
   accidentals?: Accidentals
@@ -40,22 +40,18 @@ function pick<T>(items: readonly T[], random: Random): T {
 }
 
 /**
- * Picks a random active string, then a random pitch class reachable on it,
- * so every note name is equally likely however often it occurs on the neck.
+ * Picks a random pitch class reachable on the string, so every note name is
+ * equally likely however often it occurs on the neck.
  * Never repeats `previous` unless no other prompt is possible.
  */
 export function nextPrompt(options: PromptOptions, random: Random, previous?: Prompt): Prompt {
-  if (options.strings.length === 0) throw new Error('No active strings')
-  const frets = fretsIn(options.range)
-  const possible = options.strings.reduce((n, s) => n + pitchClassesOnString(s, frets).length, 0)
-
-  for (;;) {
-    const string = pick(options.strings, random)
-    const pitchClass = pick(pitchClassesOnString(string, frets), random)
-    const spelling = pick(spellingsOf(pitchClass, options.accidentals), random)
-    const repeat = previous?.string.name === string.name && previous.pitchClass === pitchClass
-    if (!repeat || possible === 1) return { string, pitchClass, spelling }
-  }
+  const { string } = options
+  const pitchClasses = pitchClassesOnString(string, fretsIn(options.range))
+  const candidates =
+    pitchClasses.length > 1 ? pitchClasses.filter((pc) => pc !== previous?.pitchClass) : pitchClasses
+  const pitchClass = pick(candidates, random)
+  const spelling = pick(spellingsOf(pitchClass, options.accidentals), random)
+  return { string, pitchClass, spelling }
 }
 
 /** An answer is correct when its pitch class matches; the string is taken on trust. */

@@ -4,8 +4,8 @@ import type { FretRange } from './prompts'
 export const MAX_FRET = 21
 
 export interface Settings {
-  /** Names of the active strings. */
-  activeStrings: string[]
+  /** Name of the string the drill prompts on. */
+  activeString: string
   range: FretRange
   accidentals: Accidentals
   /** Input level below which sound counts as silence. */
@@ -13,7 +13,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  activeStrings: STANDARD_TUNING.map((s) => s.name),
+  activeString: STANDARD_TUNING[0].name,
   range: { kind: 'span', from: 0, to: MAX_FRET },
   accidentals: 'both',
   gate: 0.01,
@@ -25,10 +25,8 @@ type Storage = Pick<globalThis.Storage, 'getItem' | 'setItem'>
 
 const STRING_NAMES = new Set(STANDARD_TUNING.map((s) => s.name))
 
-function isActiveStrings(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) && value.length > 0 && value.every((v) => typeof v === 'string' && STRING_NAMES.has(v))
-  )
+function isActiveString(value: unknown): value is string {
+  return typeof value === 'string' && STRING_NAMES.has(value)
 }
 
 function isFretRange(value: unknown): value is FretRange {
@@ -62,7 +60,7 @@ export function loadSettings(storage: Storage): Settings {
     return DEFAULT_SETTINGS
   }
   return {
-    activeStrings: isActiveStrings(stored.activeStrings) ? stored.activeStrings : DEFAULT_SETTINGS.activeStrings,
+    activeString: isActiveString(stored.activeString) ? stored.activeString : DEFAULT_SETTINGS.activeString,
     range: isFretRange(stored.range) ? stored.range : DEFAULT_SETTINGS.range,
     accidentals: isAccidentals(stored.accidentals) ? stored.accidentals : DEFAULT_SETTINGS.accidentals,
     gate: isGate(stored.gate) ? stored.gate : DEFAULT_SETTINGS.gate,

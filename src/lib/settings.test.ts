@@ -13,15 +13,15 @@ function memoryStorage(initial: Record<string, string> = {}) {
 }
 
 const custom: Settings = {
-  activeStrings: ['E'],
+  activeString: 'A',
   range: { kind: 'marked' },
   accidentals: 'flats',
   gate: 0.03,
 }
 
 describe('settings', () => {
-  it('defaults to every string, the full neck', () => {
-    expect(DEFAULT_SETTINGS.activeStrings).toEqual(['E', 'A', 'D', 'G'])
+  it('defaults to the E string, the full neck', () => {
+    expect(DEFAULT_SETTINGS.activeString).toBe('E')
     expect(DEFAULT_SETTINGS.range).toEqual({ kind: 'span', from: 0, to: 21 })
     expect(DEFAULT_SETTINGS.accidentals).toBe('both')
   })
@@ -41,7 +41,7 @@ describe('settings', () => {
   })
 
   it('keeps valid fields and replaces invalid ones', () => {
-    const stored = JSON.stringify({ activeStrings: ['X'], range: { kind: 'marked' }, accidentals: 'naturals', gate: 'loud' })
+    const stored = JSON.stringify({ activeString: 'X', range: { kind: 'marked' }, accidentals: 'naturals', gate: 'loud' })
     expect(loadSettings(memoryStorage({ 'bassquiz.settings': stored }))).toEqual({
       ...DEFAULT_SETTINGS,
       range: { kind: 'marked' },

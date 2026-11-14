@@ -64,19 +64,16 @@ describe('positionsOf', () => {
 describe('nextPrompt', () => {
   const fullNeck = { kind: 'span', from: 0, to: 21 } as const
 
-  it('draws only from the active strings', () => {
-    const random = seeded(1)
-    for (let i = 0; i < 200; i++) {
-      const p = nextPrompt({ strings: [A, G], range: fullNeck }, random)
-      expect(['A', 'G']).toContain(p.string.name)
-    }
+  it('prompts on the given string', () => {
+    const p = nextPrompt({ string: G, range: fullNeck }, seeded(1))
+    expect(p.string).toBe(G)
   })
 
   it('draws only pitch classes reachable within the fret range', () => {
     const random = seeded(2)
     const reachable = pitchClassesOnString(E, fretsIn({ kind: 'marked' }))
     for (let i = 0; i < 200; i++) {
-      const p = nextPrompt({ strings: [E], range: { kind: 'marked' } }, random)
+      const p = nextPrompt({ string: E, range: { kind: 'marked' } }, random)
       expect(reachable).toContain(p.pitchClass)
     }
   })
@@ -87,10 +84,10 @@ describe('nextPrompt', () => {
     const counts = new Map<number, number>()
     const n = 10000
     for (let i = 0; i < n; i++) {
-      const p = nextPrompt({ strings: [E], range: { kind: 'marked' } }, random)
+      const p = nextPrompt({ string: E, range: { kind: 'marked' } }, random)
       counts.set(p.pitchClass, (counts.get(p.pitchClass) ?? 0) + 1)
     }
-    // The no-repeat rule skews things slightly; each should still be near n/5.
+    // The no-repeat rule doesn't favour any pitch class; each should be near n/5.
     for (const count of counts.values()) {
       expect(count).toBeGreaterThan(n / 5 - 300)
       expect(count).toBeLessThan(n / 5 + 300)
@@ -100,15 +97,15 @@ describe('nextPrompt', () => {
   it('spells the prompt with one of its pitch class spellings', () => {
     const random = seeded(4)
     for (let i = 0; i < 200; i++) {
-      const p = nextPrompt({ strings: [E, A, D, G], range: fullNeck }, random)
+      const p = nextPrompt({ string: A, range: fullNeck }, random)
       expect(spellingsOf(p.pitchClass)).toContain(p.spelling)
     }
   })
 
   it('uses both spellings for accidentals', () => {
-    // string 0, then pitch class index 0 (C♯ on the E string's marked frets), then spelling 0 or 1
-    const sharp = nextPrompt({ strings: [E], range: { kind: 'marked' } }, sequence(0, 0, 0))
-    const flat = nextPrompt({ strings: [E], range: { kind: 'marked' } }, sequence(0, 0, 0.9))
+    // pitch class index 0 (C♯ on the E string's marked frets), then spelling 0 or 1
+    const sharp = nextPrompt({ string: E, range: { kind: 'marked' } }, sequence(0, 0))
+    const flat = nextPrompt({ string: E, range: { kind: 'marked' } }, sequence(0, 0.9))
     expect(sharp.spelling).toBe('C♯')
     expect(flat.spelling).toBe('D♭')
   })
@@ -119,42 +116,27 @@ describe('nextPrompt', () => {
   ] as const)('spells accidentals with %s only when asked', (accidentals, symbol) => {
     const random = seeded(7)
     for (let i = 0; i < 200; i++) {
-      const p = nextPrompt({ strings: [E, A, D, G], range: fullNeck, accidentals }, random)
+      const p = nextPrompt({ string: A, range: fullNeck, accidentals }, random)
       if (p.spelling.length > 1) expect(p.spelling).toContain(symbol)
     }
   })
 
   it('never repeats the previous prompt', () => {
     const random = seeded(5)
-    const options = { strings: [E, A], range: { kind: 'span', from: 0, to: 2 } } as const
+    const options = { string: E, range: { kind: 'span', from: 0, to: 2 } } as const
     let previous: Prompt | undefined
     for (let i = 0; i < 500; i++) {
       const p = nextPrompt(options, random, previous)
-      if (previous) {
-        expect(p.string === previous.string && p.pitchClass === previous.pitchClass).toBe(false)
-      }
+      if (previous) expect(p.pitchClass).not.toBe(previous.pitchClass)
       previous = p
     }
   })
 
-  it('recognises the previous prompt even when its string is a copy', () => {
-    const random = seeded(6)
-    const options = { strings: [E], range: { kind: 'span', from: 5, to: 6 } } as const
-    for (let i = 0; i < 50; i++) {
-      const previous: Prompt = { string: { ...E }, pitchClass: 9, spelling: 'A' }
-      expect(nextPrompt(options, random, previous).pitchClass).toBe(10)
-    }
-  })
-
   it('repeats when only one prompt is possible', () => {
-    const options = { strings: [E], range: { kind: 'span', from: 5, to: 5 } } as const
+    const options = { string: E, range: { kind: 'span', from: 5, to: 5 } } as const
     const first = nextPrompt(options, Math.random)
     const second = nextPrompt(options, Math.random, first)
     expect(second.pitchClass).toBe(9)
-  })
-
-  it('refuses to run with no active strings', () => {
-    expect(() => nextPrompt({ strings: [], range: fullNeck }, Math.random)).toThrow()
   })
 })
 

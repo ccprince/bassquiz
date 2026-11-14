@@ -23,7 +23,7 @@
 
   // Settings can't change during a drill, so read them once.
   const options = untrack(() => ({
-    strings: STANDARD_TUNING.filter((s) => settings.activeStrings.includes(s.name)),
+    string: STANDARD_TUNING.find((s) => s.name === settings.activeString) ?? STANDARD_TUNING[0],
     range: settings.range,
     accidentals: settings.accidentals,
   }))
