@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { STANDARD_TUNING } from './notes'
-import { type DrillState, answer, next, reveal, start } from './drill'
+import { type DrillOptions, type DrillState, answer, isFinished, next, reveal, start, totalDealt } from './drill'
 import type { PromptOptions } from './prompts'
 
 const [E] = STANDARD_TUNING
@@ -15,6 +15,10 @@ const promptingA: DrillState = {
   wrong: 0,
   shownAt: 1000,
   count: 0,
+  reviewing: false,
+  deck: [],
+  dealt: 0,
+  earned: 0,
   reviews: [],
   results: [],
 }
@@ -67,98 +71,154 @@ describe('drill', () => {
   })
 })
 
-/** A seeded PRNG (mulberry32), so a drill's random prompts are reproducible. */
-function seeded(seed: number): () => number {
-  return () => {
-    seed = (seed + 0x6d2b79f5) | 0
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+// E string, full neck: all twelve pitch classes, both spellings of each accidental.
+const fullNeck: PromptOptions = { string: E, range: { from: 0, to: 24, markedOnly: false } }
+// Frets 0–1 on the E string: only E and F.
+const twoNotes: PromptOptions = { string: E, range: { from: 0, to: 1, markedOnly: false } }
+// Always dealing the lowest candidate, so a drill runs C, C♯, D, D♭, D♯, E, E♭, …
+const lowest = () => 0
+
+const right = (state: DrillState) => answer(state, { midi: 36 + state.prompt.pitchClass, cents: 0 }, 0)
+const wrong = (state: DrillState) => answer(state, { midi: 37 + state.prompt.pitchClass, cents: 0 }, 0)
+const miss = (state: DrillState) => right(wrong(state))
+const rights = (n: number) => Array<typeof right>(n).fill(right)
+
+/** Plays a drill, answering each prompt with `play`; returns the spellings asked. */
+function run(plays: ((state: DrillState) => DrillState)[], options = fullNeck) {
+  let state = start(options, lowest, 0)
+  const asked: string[] = []
+  for (const play of plays) {
+    asked.push(state.prompt.spelling)
+    state = next(play(state), options, lowest, 0)
   }
+  return { asked, state }
 }
 
-describe('reviews', () => {
-  // E string, full neck: all twelve pitch classes, both spellings of each accidental.
-  const fullNeck: PromptOptions = { string: E, range: { from: 0, to: 24, markedOnly: false } }
+describe('rounds', () => {
+  it('deals every spelling once per round', () => {
+    const { asked } = run(rights(34))
+    expect(new Set(asked.slice(0, 17)).size).toBe(17)
+    expect(new Set(asked.slice(17)).size).toBe(17)
+  })
 
-  const right = (state: DrillState) => answer(state, { midi: 36 + state.prompt.pitchClass, cents: 0 }, 0)
-  const wrong = (state: DrillState) => answer(state, { midi: 37 + state.prompt.pitchClass, cents: 0 }, 0)
-  const miss = (state: DrillState) => right(wrong(state))
+  it('counts the dealt prompts answered', () => {
+    expect(run(rights(5)).state.dealt).toBe(5)
+  })
 
-  /** Plays a drill from `state`, answering each prompt with `play`; returns the spellings asked. */
-  function run(
-    state: DrillState,
-    plays: ((state: DrillState) => DrillState)[],
-    random: () => number,
-    options = fullNeck,
-  ) {
-    const asked: string[] = []
+  it('counts a dealt prompt however it was answered', () => {
+    expect(run([miss, (s) => right(reveal(s))]).state.dealt).toBe(2)
+  })
+
+  it('totals the dealt prompts in a limited drill', () => {
+    expect(totalDealt({ ...fullNeck, rounds: 3 })).toBe(51)
+    expect(totalDealt({ ...fullNeck, rounds: null })).toBeNull()
+  })
+
+  it('finishes a limited drill when its last dealt prompt is answered, dropping pending reviews', () => {
+    const options: DrillOptions = { ...twoNotes, rounds: 1 }
+    const first = miss(start(options, lowest, 0))
+    expect(isFinished(first, options)).toBe(false)
+    const last = right(next(first, options, lowest, 0))
+    expect(last.reviews).toHaveLength(1)
+    expect(isFinished(last, options)).toBe(true)
+  })
+
+  it('never finishes an open-ended drill', () => {
+    const options: DrillOptions = { ...twoNotes, rounds: null }
+    expect(isFinished(run(rights(10), options).state, options)).toBe(false)
+  })
+})
+
+describe('progress', () => {
+  it('earns a whole step for a dealt prompt answered right first time', () => {
+    expect(run(rights(3)).state.earned).toBe(3)
+  })
+
+  it('earns nothing for a miss, even once corrected', () => {
+    expect(run([miss, (s) => right(reveal(s))]).state.earned).toBe(0)
+  })
+
+  it('earns back a missed step in halves, one per clean review', () => {
+    // C is missed, then reviewed cleanly at prompts 3 and 9.
+    expect(run([miss, ...rights(3)]).state.earned).toBe(2.5)
+    expect(run([miss, ...rights(9)]).state.earned).toBe(8)
+  })
+
+  it('splits what is left between the reviews after a missed review', () => {
+    // C's second review, at prompt 9, is missed; its next two reviews earn a quarter each.
+    const plays = [miss, ...rights(8), miss, ...rights(3)]
+    expect(run(plays).state.earned).toBe(9.75)
+    const { state } = run([...plays, ...rights(6)])
+    expect(state.reviews).toEqual([])
+    expect(state.earned).toBe(state.dealt)
+  })
+
+  it('earns a whole step for dealing a spelling under review, leaving its reviews owed', () => {
+    // E is missed, dealt cleanly in the next round, then reviewed.
+    expect(run([miss, ...rights(4)], twoNotes).state.earned).toBe(3.5)
+  })
+
+  it('never earns more than the dealt prompts, and earns them all once reviews are done', () => {
+    // Missing every third prompt, reviews included.
+    const plays = Array.from({ length: 80 }, (_, i) => (i % 3 ? right : miss))
+    let state = start(fullNeck, lowest, 0)
     for (const play of plays) {
-      asked.push(state.prompt.spelling)
-      state = next(play(state), options, random, 0)
+      state = next(play(state), fullNeck, lowest, 0)
+      const owed = state.reviews.reduce((n, r) => n + r.owed, 0)
+      expect(state.earned + owed).toBe(state.dealt)
     }
-    return { asked, state }
-  }
+  })
+})
 
+describe('reviews', () => {
   it('reviews a missed spelling after two other prompts', () => {
-    const random = seeded(1)
-    const first = start(fullNeck, random, 0)
-    const { asked, state } = run(first, [miss, right, right], random)
-    expect(asked[1]).not.toBe(first.prompt.spelling)
-    expect(asked[2]).not.toBe(first.prompt.spelling)
-    expect(state.prompt.spelling).toBe(first.prompt.spelling)
+    const { asked, state } = run([miss, right, right])
+    expect(asked).toEqual(['C', 'C♯', 'D'])
+    expect(state.prompt.spelling).toBe('C')
+    expect(state.reviewing).toBe(true)
   })
 
   it('counts a reveal as a miss', () => {
-    const random = seeded(2)
-    const first = start(fullNeck, random, 0)
-    const { state } = run(first, [(s) => right(reveal(s)), right, right], random)
-    expect(state.prompt.spelling).toBe(first.prompt.spelling)
-  })
-
-  it('reviews again five prompts after a clean review', () => {
-    const random = seeded(3)
-    const first = start(fullNeck, random, 0)
-    const { asked, state } = run(first, [miss, right, right, right, right, right, right, right, right], random)
-    expect(asked[3]).toBe(first.prompt.spelling)
-    expect(asked.slice(4)).not.toContain(first.prompt.spelling)
-    expect(state.prompt.spelling).toBe(first.prompt.spelling)
-  })
-
-  it('returns a spelling to random selection after two clean reviews', () => {
-    // Always picking the lowest candidate: C, then C♯ and D alternate while C is under review.
-    const lowest = () => 0
-    const first = start(fullNeck, lowest, 0)
-    const plays = [miss, ...Array<typeof right>(10).fill(right)]
-    const { asked, state } = run(first, plays, lowest)
-    expect(asked).toEqual(['C', 'C♯', 'D', 'C', 'C♯', 'D', 'C♯', 'D', 'C♯', 'C', 'C♯'])
+    const { state } = run([(s) => right(reveal(s)), right, right])
     expect(state.prompt.spelling).toBe('C')
   })
 
-  it('starts the schedule over when a review is missed', () => {
-    const random = seeded(4)
-    const first = start(fullNeck, random, 0)
-    const { asked, state } = run(first, [miss, right, right, miss, right, right], random)
-    expect(asked[3]).toBe(first.prompt.spelling)
-    expect(asked.slice(4)).not.toContain(first.prompt.spelling)
-    expect(state.prompt.spelling).toBe(first.prompt.spelling)
+  it('reviews again five prompts after a clean review', () => {
+    const { asked, state } = run([miss, ...rights(8)])
+    expect(asked[3]).toBe('C')
+    expect(asked.slice(4)).not.toContain('C')
+    expect(state.prompt.spelling).toBe('C')
   })
 
-  it('asks the soonest review early when every prompt is under review', () => {
-    // Frets 0–1 on the E string: only E and F.
-    const twoNotes: PromptOptions = { string: E, range: { from: 0, to: 1, markedOnly: false } }
-    const lowest = () => 0
-    const { asked } = run(start(twoNotes, lowest, 0), [miss, miss, right, right], lowest, twoNotes)
-    expect(asked).toEqual(['E', 'F', 'E', 'F'])
+  it('asks reviews in addition to the round, ending them after two clean reviews', () => {
+    // A round of 17 dealt prompts, plus C's two reviews.
+    const { asked, state } = run([miss, ...rights(18)])
+    expect(asked.filter((s) => s === 'C')).toHaveLength(3)
+    expect(new Set(asked).size).toBe(17)
+    expect(state.dealt).toBe(17)
+    expect(state.reviews).toEqual([])
+  })
+
+  it('starts the schedule over when a review is missed', () => {
+    const { asked, state } = run([miss, right, right, miss, right, right])
+    expect(asked[3]).toBe('C')
+    expect(asked.slice(4)).not.toContain('C')
+    expect(state.prompt.spelling).toBe('C')
   })
 
   it('holds back a review of the pitch class just asked', () => {
-    // G♯ is missed first and A♭ later; their reviews fall due on consecutive prompts.
-    const random = seeded(3)
-    const plays = [miss, right, right, right, right, right, right, miss, right, right, right]
-    const { asked, state } = run(start(fullNeck, random, 0), plays, random)
-    expect([asked[0], asked[7], asked[9]]).toEqual(['G♯', 'A♭', 'G♯'])
-    expect(asked[10]).not.toBe('A♭')
-    expect(state.prompt.spelling).toBe('A♭')
+    // C♯'s review falls due straight after D♭ is dealt.
+    const { asked, state } = run([right, miss, right, right, right])
+    expect(asked).toEqual(['C', 'C♯', 'D', 'D♭', 'D♯'])
+    expect(state.prompt.spelling).toBe('C♯')
+  })
+
+  it('may deal a spelling under review, leaving its reviews be', () => {
+    // E is missed, then dealt again in the next round; its review still comes after.
+    const { asked, state } = run([miss, right, right, right], twoNotes)
+    expect(asked).toEqual(['E', 'F', 'E', 'F'])
+    expect(state.prompt.spelling).toBe('E')
+    expect(state.reviewing).toBe(true)
+    expect(state.dealt).toBe(4)
   })
 })

@@ -1,5 +1,5 @@
 import type { Answer } from './attack'
-import { type Prompt, type PromptOptions, type Random, isCorrect, nextPrompt } from './prompts'
+import { type Prompt, type PromptOptions, type Random, canFollow, deal, isCorrect, roundOf } from './prompts'
 import type { PromptResult } from './results'
 
 /**
@@ -10,6 +10,11 @@ import type { PromptResult } from './results'
  */
 export type DrillStatus = 'waiting' | 'wrong' | 'revealed' | 'correct'
 
+export interface DrillOptions extends PromptOptions {
+  /** How many rounds before the drill stops; null for an open-ended drill. */
+  rounds: number | null
+}
+
 /** A missed spelling waiting to be asked again. */
 interface Review {
   prompt: Prompt
@@ -17,6 +22,8 @@ interface Review {
   due: number
   /** How many of its reviews have been answered right first time. */
   passed: number
+  /** What's left of the progress its missed dealt prompts are worth, earned back by clean reviews. */
+  owed: number
 }
 
 export interface DrillState {
@@ -32,6 +39,17 @@ export interface DrillState {
   shownAt: number
   /** How many prompts came before this one. */
   count: number
+  /** Whether this prompt is a review rather than dealt from the round. */
+  reviewing: boolean
+  /** What's left of the current round, not counting this prompt. */
+  deck: readonly Prompt[]
+  /** How many dealt prompts have been answered, across all rounds. */
+  dealt: number
+  /**
+   * Progress earned, in dealt prompts: a whole one for each answered right first time, and for each
+   * missed one, shares earned back by its clean reviews.
+   */
+  earned: number
   reviews: readonly Review[]
   /** Every prompt answered so far, in order. */
   results: readonly PromptResult[]
@@ -41,14 +59,20 @@ export interface DrillState {
 const REVIEW_GAPS = [2, 5]
 
 export function start(options: PromptOptions, random: Random, now: number): DrillState {
+  const round = roundOf(options)
+  const prompt = deal(round, random)
   return {
-    prompt: nextPrompt(options, random),
+    prompt,
     status: 'waiting',
     heard: null,
     missed: false,
     wrong: 0,
     shownAt: now,
     count: 0,
+    reviewing: false,
+    deck: round.filter((p) => p !== prompt),
+    dealt: 0,
+    earned: 0,
     reviews: [],
     results: [],
   }
@@ -64,7 +88,9 @@ export function answer(state: DrillState, heard: Answer, now: number): DrillStat
       revealed: state.status === 'revealed',
       ms: now - state.shownAt,
     }
-    return { ...state, status: 'correct', heard, results: [...state.results, result] }
+    const dealt = state.reviewing ? state.dealt : state.dealt + 1
+    const earned = state.missed ? state.earned : state.earned + (state.reviewing ? share(currentReview(state)) : 1)
+    return { ...state, status: 'correct', heard, dealt, earned, results: [...state.results, result] }
   }
   const status = state.status === 'revealed' ? 'revealed' : 'wrong'
   return { ...state, status, heard, missed: true, wrong: state.wrong + 1 }
@@ -74,29 +100,49 @@ export function reveal(state: DrillState): DrillState {
   return state.status === 'correct' ? state : { ...state, status: 'revealed', missed: true }
 }
 
-export function next(state: DrillState, options: PromptOptions, random: Random, now: number): DrillState {
-  const count = state.count + 1
-  const current = state.reviews.find((r) => r.prompt.spelling === state.prompt.spelling)
-  const reviews = state.reviews.filter((r) => r !== current)
-  const passed = state.missed ? 0 : (current?.passed ?? 0) + 1
-  if ((current || state.missed) && passed < REVIEW_GAPS.length) {
-    reviews.push({ prompt: state.prompt, due: count + REVIEW_GAPS[passed], passed })
-  }
-  const byDue = [...reviews].sort((a, b) => a.due - b.due)
-  // Like a random prompt, a review never repeats the pitch class just asked.
-  const due = byDue.find((r) => r.due <= count && r.prompt.pitchClass !== state.prompt.pitchClass)
-  const prompt = due?.prompt ?? pickUnreviewed(byDue, state.prompt, options, random)
-  return { ...state, prompt, status: 'waiting', heard: null, missed: false, wrong: 0, shownAt: now, count, reviews }
+function currentReview(state: DrillState): Review | undefined {
+  return state.reviews.find((r) => r.prompt.spelling === state.prompt.spelling)
 }
 
-/** A random prompt not under review; with every prompt under review, the soonest review is asked early. */
-function pickUnreviewed(
-  byDue: readonly Review[],
-  previous: Prompt,
-  options: PromptOptions,
-  random: Random,
-): Prompt {
-  const excluded = byDue.map((r) => r.prompt.spelling)
-  const picked = nextPrompt(options, random, previous, excluded)
-  return excluded.includes(picked.spelling) ? byDue[0].prompt : picked
+/** What a clean review earns: an equal share of what's owed between the reviews still to come. */
+function share(review: Review | undefined): number {
+  return review ? review.owed / (REVIEW_GAPS.length - review.passed) : 0
+}
+
+/** Dealt prompts in all of a limited drill's rounds; null for an open-ended drill. */
+export function totalDealt(options: DrillOptions): number | null {
+  return options.rounds === null ? null : options.rounds * roundOf(options).length
+}
+
+/** A limited drill is finished once its last dealt prompt is answered; pending reviews are dropped. */
+export function isFinished(state: DrillState, options: DrillOptions): boolean {
+  return state.dealt === totalDealt(options)
+}
+
+export function next(state: DrillState, options: PromptOptions, random: Random, now: number): DrillState {
+  const count = state.count + 1
+  // Only a miss or a review changes a spelling's reviews; dealing a spelling under review leaves them be.
+  const changed = state.missed || state.reviewing
+  const current = currentReview(state)
+  const reviews = changed ? state.reviews.filter((r) => r !== current) : [...state.reviews]
+  const passed = state.missed ? 0 : (current?.passed ?? 0) + 1
+  // A missed dealt prompt adds its whole worth to what's owed; a clean review pays its share off.
+  const owed = (current?.owed ?? 0) + (state.reviewing ? 0 : 1) - (state.missed ? 0 : share(current))
+  if (changed && passed < REVIEW_GAPS.length) {
+    reviews.push({ prompt: state.prompt, due: count + REVIEW_GAPS[passed], passed, owed })
+  }
+  const fresh = { status: 'waiting', heard: null, missed: false, wrong: 0, shownAt: now, count, reviews } as const
+  // Like a dealt prompt, a review never repeats the pitch class just asked, nor leaves the round stuck.
+  const due = [...reviews]
+    .sort((a, b) => a.due - b.due)
+    .find(
+      (r) =>
+        r.due <= count &&
+        r.prompt.pitchClass !== state.prompt.pitchClass &&
+        canFollow(state.deck, r.prompt.pitchClass),
+    )
+  if (due) return { ...state, ...fresh, prompt: due.prompt, reviewing: true }
+  const deck = state.deck.length ? state.deck : roundOf(options)
+  const prompt = deal(deck, random, state.prompt)
+  return { ...state, ...fresh, prompt, reviewing: false, deck: deck.filter((p) => p !== prompt) }
 }

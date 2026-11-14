@@ -35,7 +35,7 @@ _Avoid_: Question, challenge
 The note the player plays in response to a prompt; correct when its pitch class matches the prompt's. The string is taken on trust.
 
 **Drill**:
-An untimed, open-ended run of prompts with immediate right/wrong feedback; a wrong answer is retried until correct. A drill remembers its misses until it stops, then shows its results; nothing is saved.
+An untimed run of prompts with immediate right/wrong feedback, either open-ended or limited to a number of rounds; a wrong answer is retried until correct. A drill remembers its misses until it stops, then shows its results; nothing is saved.
 _Avoid_: Practice session, exercise
 
 **Miss**:
@@ -43,16 +43,16 @@ A prompt whose first answer was wrong, or that was revealed. A miss counts again
 _Avoid_: Mistake, error
 
 **Results**:
-What a drill shows when it stops: how many prompts were answered right first time, how long answers took, and each note's misses, graded on the fretboard as never, sometimes, or always missed. Shown once and discarded.
+What a drill shows when it stops: how many prompts were answered right first time, how long answers took, and each note's misses, graded on the fretboard as never, sometimes, or always missed; for a limited drill, also whether every round was finished. Shown once and discarded.
 _Avoid_: Score, report
 
 **Review**:
-A prompt asked again because its spelling was missed: once after two other prompts, then again after five more. Two reviews answered right first time return the spelling to random selection; a missed review starts the schedule over. While under review, a spelling is asked only by its reviews.
+A prompt asked again because its spelling was missed: once after two other prompts, then again after five more. Two reviews answered right first time end its reviews; a missed review starts the schedule over. Reviews are asked in addition to rounds and never count toward them.
 _Avoid_: Retry, repeat, comeback
 
-**Quiz**:
-A fixed-length, scored run of prompts. (Future.)
-_Avoid_: Test, exam
+**Round**:
+A pass in which a drill asks every spelling reachable in its fret range once. A limited drill stops after a chosen number of rounds.
+_Avoid_: Lap, cycle, set
 
 **Active string**:
 The one string a drill draws prompts from, chosen by the player. Only one, because the app can't tell which string a note was played on.

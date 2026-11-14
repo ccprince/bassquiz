@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte'
   import type { Answer, Frame } from './lib/attack'
-  import { answer, next, reveal, start } from './lib/drill'
+  import { answer, isFinished, next, reveal, start, totalDealt } from './lib/drill'
   import { STANDARD_TUNING, noteName } from './lib/notes'
   import { fretsIn, positionsOf } from './lib/prompts'
   import type { FinishedDrill } from './lib/results'
@@ -27,7 +27,12 @@
     string: STANDARD_TUNING.find((s) => s.name === settings.activeString) ?? STANDARD_TUNING[0],
     range: settings.range,
     accidentals: settings.accidentals,
+    rounds: settings.rounds,
   }))
+  const total = totalDealt(options)
+  const rounds = options.rounds
+  // Where one round ends and the next begins, as fractions of the whole drill.
+  const ticks = rounds ? Array.from({ length: rounds - 1 }, (_, i) => (i + 1) / rounds) : []
 
   const startedAt = performance.now()
   let drill = $state(start(options, Math.random, startedAt))
@@ -41,7 +46,7 @@
     const unsubscribe = onAnswer((heard) => {
       if (drill.status === 'correct') return
       drill = answer(drill, heard, performance.now())
-      if (drill.status === 'correct') advanceTimer = setTimeout(advance, ADVANCE_MS)
+      if (drill.status === 'correct') advanceTimer = setTimeout(isFinished(drill, options) ? stop : advance, ADVANCE_MS)
     })
     return () => {
       unsubscribe()
@@ -50,7 +55,7 @@
   })
 
   function stop() {
-    onstop({ results: drill.results, options, durationMs: performance.now() - startedAt })
+    onstop({ results: drill.results, options, dealt: drill.dealt, durationMs: performance.now() - startedAt })
   }
 
   function advance() {
@@ -67,6 +72,20 @@
       <span class="muted small">Heard: <Heard {frame} gate={settings.gate} accidentals={options.accidentals} /></span>
     </div>
   </header>
+
+  {#if total}
+    <div
+      class="progress"
+      role="progressbar"
+      aria-label="Drill progress"
+      aria-valuemin="0"
+      aria-valuemax={total}
+      aria-valuenow={drill.earned}
+    >
+      <span class="fill" style="width: {(drill.earned / total) * 100}%"></span>
+      {#each ticks as at (at)}<span class="tick" style="left: {at * 100}%"></span>{/each}
+    </div>
+  {/if}
 
   <div class="prompt" aria-live="polite">
     <div class="note">{drill.prompt.spelling}</div>
@@ -116,6 +135,28 @@
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+  }
+  .progress {
+    position: relative;
+    height: 0.5rem;
+    margin-top: 1rem;
+    background: var(--surface-2);
+    border-radius: 0.25rem;
+    overflow: hidden;
+  }
+  .fill {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s ease;
+  }
+  .tick {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--bg);
   }
   .prompt {
     text-align: center;

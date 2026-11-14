@@ -16,6 +16,7 @@ const custom: Settings = {
   activeString: 'A',
   range: { from: 0, to: 21, markedOnly: true },
   accidentals: 'flats',
+  rounds: 3,
   gate: 0.03,
 }
 
@@ -24,12 +25,19 @@ describe('settings', () => {
     expect(DEFAULT_SETTINGS.activeString).toBe('E')
     expect(DEFAULT_SETTINGS.range).toEqual({ from: 0, to: 24, markedOnly: false })
     expect(DEFAULT_SETTINGS.accidentals).toBe('both')
+    expect(DEFAULT_SETTINGS.rounds).toBeNull()
   })
 
   it('round-trips through storage', () => {
     const storage = memoryStorage()
     saveSettings(storage, custom)
     expect(loadSettings(storage)).toEqual(custom)
+  })
+
+  it('round-trips an open-ended drill', () => {
+    const storage = memoryStorage()
+    saveSettings(storage, { ...custom, rounds: null })
+    expect(loadSettings(storage).rounds).toBeNull()
   })
 
   it('falls back to defaults when nothing is stored', () => {
@@ -45,6 +53,7 @@ describe('settings', () => {
       activeString: 'X',
       range: { from: 0, to: 21, markedOnly: true },
       accidentals: 'naturals',
+      rounds: 4,
       gate: 'loud',
     })
     expect(loadSettings(memoryStorage({ 'bassquiz.settings': stored }))).toEqual({

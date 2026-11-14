@@ -43,29 +43,33 @@ function pick<T>(items: readonly T[], random: Random): T {
   return items[Math.floor(random() * items.length)]
 }
 
-/**
- * Picks a random pitch class reachable on the string, so every note name is
- * equally likely however often it occurs on the neck.
- * Never repeats `previous` unless no other prompt is possible, and never picks
- * an `excluded` spelling unless every spelling is excluded.
- */
-export function nextPrompt(
-  options: PromptOptions,
-  random: Random,
-  previous?: Prompt,
-  excluded: readonly string[] = [],
-): Prompt {
+/** Every prompt a round asks: one per spelling reachable in the fret range, lowest pitch class first. */
+export function roundOf(options: PromptOptions): Prompt[] {
   const { string } = options
-  const reachable = pitchClassesOnString(string, fretsIn(options.range))
-  const allExcluded = reachable.every((pc) => spellingsOf(pc, options.accidentals).every((s) => excluded.includes(s)))
-  const spellings = (pc: PitchClass) =>
-    spellingsOf(pc, options.accidentals).filter((s) => allExcluded || !excluded.includes(s))
-  const pitchClasses = reachable.filter((pc) => spellings(pc).length > 0)
-  const candidates =
-    pitchClasses.length > 1 ? pitchClasses.filter((pc) => pc !== previous?.pitchClass) : pitchClasses
-  const pitchClass = pick(candidates, random)
-  const spelling = pick(spellings(pitchClass), random)
-  return { string, pitchClass, spelling }
+  return pitchClassesOnString(string, fretsIn(options.range)).flatMap((pitchClass) =>
+    spellingsOf(pitchClass, options.accidentals).map((spelling) => ({ string, pitchClass, spelling })),
+  )
+}
+
+/**
+ * Picks the next prompt from what's left of a round. Never repeats the pitch class of `previous`, and never
+ * leaves the rest of the round unable to avoid a repeat, unless no other prompt is possible.
+ */
+export function deal(deck: readonly Prompt[], random: Random, previous?: Prompt): Prompt {
+  const fresh = deck.filter((p) => p.pitchClass !== previous?.pitchClass)
+  const safe = fresh.filter((p) => canFollow(without(deck, p), p.pitchClass))
+  return pick(safe.length ? safe : fresh.length ? fresh : deck, random)
+}
+
+/** Whether `deck` can be asked in some order with no pitch class twice in a row, starting after `last`. */
+export function canFollow(deck: readonly Prompt[], last: PitchClass): boolean {
+  // With at most two spellings per pitch class, only a deck of two or three can be stuck,
+  // so this search never backtracks far.
+  return deck.length === 0 || deck.some((p) => p.pitchClass !== last && canFollow(without(deck, p), p.pitchClass))
+}
+
+function without(deck: readonly Prompt[], prompt: Prompt): Prompt[] {
+  return deck.filter((p) => p !== prompt)
 }
 
 /** An answer is correct when its pitch class matches; the string is taken on trust. */

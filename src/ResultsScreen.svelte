@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { type FinishedDrill, type Grade, byNote, summarize, toWorkOn } from './lib/results'
+  import { type FinishedDrill, type Grade, byNote, roundsReached, summarize, toWorkOn } from './lib/results'
   import Fretboard, { type Dot } from './Fretboard.svelte'
 
   interface Props extends FinishedDrill {
@@ -7,7 +7,7 @@
     ondone: () => void
   }
 
-  let { results, options, durationMs, onagain, ondone }: Props = $props()
+  let { results, options, dealt, durationMs, onagain, ondone }: Props = $props()
 
   const GRADES: { grade: Grade; label: string }[] = [
     { grade: 'never', label: 'Never missed' },
@@ -17,6 +17,7 @@
   ]
   const gradeLabel = (g: Grade) => GRADES.find((x) => x.grade === g)?.label
 
+  const reached = $derived(roundsReached({ results, options, dealt, durationMs }))
   const summary = $derived(summarize(results))
   const notes = $derived(byNote(results, options))
   const workOn = $derived(toWorkOn(notes))
@@ -45,6 +46,11 @@
 
 <div class="screen">
   <h1>Drill finished</h1>
+  {#if reached}
+    <p class="muted rounds">
+      {reached.complete ? `${plural(reached.of, 'round')} complete` : `Stopped during round ${reached.round} of ${reached.of}`}
+    </p>
+  {/if}
 
   <div class="tiles">
     <div class="tile hero">
@@ -123,6 +129,9 @@
 </div>
 
 <style>
+  .rounds {
+    margin: -1rem 0 1.5rem;
+  }
   .tiles {
     display: grid;
     grid-template-columns: repeat(4, 1fr);

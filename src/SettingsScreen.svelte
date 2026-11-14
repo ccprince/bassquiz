@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { Frame } from './lib/attack'
   import { type Accidentals, STANDARD_TUNING } from './lib/notes'
-  import { fretsIn } from './lib/prompts'
-  import { MAX_FRET, type Settings } from './lib/settings'
+  import { fretsIn, roundOf } from './lib/prompts'
+  import { MAX_FRET, ROUND_CHOICES, type Settings } from './lib/settings'
   import Heard from './Heard.svelte'
   import LevelMeter from './LevelMeter.svelte'
 
@@ -30,6 +30,13 @@
   }
 
   const noFrets = $derived(fretsIn(settings.range).length === 0)
+  const roundSize = $derived(
+    roundOf({
+      string: STANDARD_TUNING.find((s) => s.name === settings.activeString) ?? STANDARD_TUNING[0],
+      range: settings.range,
+      accidentals: settings.accidentals,
+    }).length,
+  )
 
   const gateDb = $derived(Math.round(20 * Math.log10(settings.gate)))
 </script>
@@ -93,6 +100,28 @@
         </button>
       {/each}
     </div>
+  </section>
+
+  <section>
+    <h2>Length</h2>
+    <div class="choices">
+      <button class="toggle" aria-pressed={settings.rounds === null} onclick={() => (settings.rounds = null)}>
+        Open-ended
+      </button>
+      {#each ROUND_CHOICES as rounds (rounds)}
+        <button class="toggle" aria-pressed={settings.rounds === rounds} onclick={() => (settings.rounds = rounds)}>
+          {rounds}
+        </button>
+      {/each}
+    </div>
+    <p class="muted small">
+      {#if settings.rounds === null}
+        Drill until you stop.
+      {:else}
+        {settings.rounds} {settings.rounds === 1 ? 'round' : 'rounds'}. Each round asks all {roundSize} notes once;
+        missed notes come back as extra prompts.
+      {/if}
+    </p>
   </section>
 
   <section>

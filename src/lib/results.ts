@@ -1,5 +1,6 @@
+import type { DrillOptions } from './drill'
 import { type PitchClass, spellingsOf } from './notes'
-import { type PromptOptions, fretsIn, pitchClassesOnString, positionsOf } from './prompts'
+import { type PromptOptions, fretsIn, pitchClassesOnString, positionsOf, roundOf } from './prompts'
 
 /** How one prompt went, recorded when it was answered correctly. */
 export interface PromptResult {
@@ -15,8 +16,25 @@ export interface PromptResult {
 /** A drill that has stopped, as shown on the results screen. */
 export interface FinishedDrill {
   results: readonly PromptResult[]
-  options: PromptOptions
+  options: DrillOptions
+  /** How many dealt prompts were answered. */
+  dealt: number
   durationMs: number
+}
+
+/** How far a limited drill got: every round, or stopped during `round`. */
+export interface RoundsReached {
+  round: number
+  of: number
+  complete: boolean
+}
+
+export function roundsReached(drill: FinishedDrill): RoundsReached | null {
+  const of = drill.options.rounds
+  if (of === null) return null
+  const perRound = roundOf(drill.options).length
+  const complete = drill.dealt === of * perRound
+  return { round: complete ? of : Math.floor(drill.dealt / perRound) + 1, of, complete }
 }
 
 export const isMiss = (r: PromptResult) => r.wrong > 0 || r.revealed

@@ -3,20 +3,17 @@ import { STANDARD_TUNING, spellingsOf } from './notes'
 import {
   MARKED_FRETS,
   type Prompt,
+  type PromptOptions,
+  canFollow,
+  deal,
   fretsIn,
   isCorrect,
-  nextPrompt,
   pitchClassesOnString,
   positionsOf,
+  roundOf,
 } from './prompts'
 
 const [E, A, D, G] = STANDARD_TUNING
-
-/** A deterministic random source cycling through the given values. */
-function sequence(...values: number[]): () => number {
-  let i = 0
-  return () => values[i++ % values.length]
-}
 
 /** A seeded PRNG (mulberry32) for statistical tests. */
 function seeded(seed: number): () => number {
@@ -66,82 +63,92 @@ describe('positionsOf', () => {
   })
 })
 
-describe('nextPrompt', () => {
-  const fullNeck = { from: 0, to: 21, markedOnly: false } as const
-
-  it('prompts on the given string', () => {
-    const p = nextPrompt({ string: G, range: fullNeck }, seeded(1))
-    expect(p.string).toBe(G)
-  })
-
-  it('draws only pitch classes reachable within the fret range', () => {
-    const random = seeded(2)
-    const reachable = pitchClassesOnString(E, fretsIn({ from: 0, to: 21, markedOnly: true }))
-    for (let i = 0; i < 200; i++) {
-      const p = nextPrompt({ string: E, range: { from: 0, to: 21, markedOnly: true } }, random)
-      expect(reachable).toContain(p.pitchClass)
-    }
-  })
-
-  it('makes every reachable pitch class equally likely, regardless of how often it occurs', () => {
-    // On the E string's marked frets, G/A/B/C♯ occur twice and E once.
-    const random = seeded(3)
-    const counts = new Map<number, number>()
-    const n = 10000
-    for (let i = 0; i < n; i++) {
-      const p = nextPrompt({ string: E, range: { from: 0, to: 21, markedOnly: true } }, random)
-      counts.set(p.pitchClass, (counts.get(p.pitchClass) ?? 0) + 1)
-    }
-    // The no-repeat rule doesn't favour any pitch class; each should be near n/5.
-    for (const count of counts.values()) {
-      expect(count).toBeGreaterThan(n / 5 - 300)
-      expect(count).toBeLessThan(n / 5 + 300)
-    }
-  })
-
-  it('spells the prompt with one of its pitch class spellings', () => {
-    const random = seeded(4)
-    for (let i = 0; i < 200; i++) {
-      const p = nextPrompt({ string: A, range: fullNeck }, random)
-      expect(spellingsOf(p.pitchClass)).toContain(p.spelling)
-    }
-  })
-
-  it('uses both spellings for accidentals', () => {
-    // pitch class index 0 (C♯ on the E string's marked frets), then spelling 0 or 1
-    const sharp = nextPrompt({ string: E, range: { from: 0, to: 21, markedOnly: true } }, sequence(0, 0))
-    const flat = nextPrompt({ string: E, range: { from: 0, to: 21, markedOnly: true } }, sequence(0, 0.9))
-    expect(sharp.spelling).toBe('C♯')
-    expect(flat.spelling).toBe('D♭')
+describe('roundOf', () => {
+  it('has one prompt per spelling reachable in the fret range', () => {
+    // E string marked frets: G A B C♯ E
+    const round = roundOf({ string: E, range: { from: 0, to: 21, markedOnly: true } })
+    expect(round.map((p) => p.spelling)).toEqual(['C♯', 'D♭', 'E', 'G', 'A', 'B'])
+    expect(round.every((p) => p.string === E)).toBe(true)
   })
 
   it.each([
-    ['sharps', '♯'],
-    ['flats', '♭'],
-  ] as const)('spells accidentals with %s only when asked', (accidentals, symbol) => {
-    const random = seeded(7)
-    for (let i = 0; i < 200; i++) {
-      const p = nextPrompt({ string: A, range: fullNeck, accidentals }, random)
-      if (p.spelling.length > 1) expect(p.spelling).toContain(symbol)
+    ['sharps', ['C♯', 'E', 'G', 'A', 'B']],
+    ['flats', ['D♭', 'E', 'G', 'A', 'B']],
+  ] as const)('spells accidentals with %s only when asked', (accidentals, spellings) => {
+    const round = roundOf({ string: E, range: { from: 0, to: 21, markedOnly: true }, accidentals })
+    expect(round.map((p) => p.spelling)).toEqual(spellings)
+  })
+
+  it('spells every prompt with its pitch class', () => {
+    for (const p of roundOf({ string: A, range: { from: 0, to: 24, markedOnly: false } })) {
+      expect(spellingsOf(p.pitchClass)).toContain(p.spelling)
+    }
+  })
+})
+
+describe('deal', () => {
+  const fullNeck: PromptOptions = { string: G, range: { from: 0, to: 24, markedOnly: false } }
+
+  /** Deals whole rounds back to back, as a drill does. */
+  function dealRounds(options: PromptOptions, rounds: number, random: () => number): Prompt[] {
+    const dealt: Prompt[] = []
+    for (let r = 0; r < rounds; r++) {
+      let deck = roundOf(options)
+      while (deck.length) {
+        const p = deal(deck, random, dealt.at(-1))
+        dealt.push(p)
+        deck = deck.filter((q) => q !== p)
+      }
+    }
+    return dealt
+  }
+
+  it('deals only from the deck', () => {
+    const deck = roundOf(fullNeck)
+    for (let i = 0; i < 100; i++) expect(deck).toContain(deal(deck, Math.random))
+  })
+
+  it('never repeats a pitch class, within or across rounds', () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      for (const range of [fullNeck.range, { from: 0, to: 2, markedOnly: false }, { from: 5, to: 9, markedOnly: true }]) {
+        const dealt = dealRounds({ ...fullNeck, range }, 20, seeded(seed))
+        dealt.slice(1).forEach((p, i) => expect(p.pitchClass).not.toBe(dealt[i].pitchClass))
+      }
     }
   })
 
-  it('never repeats the previous prompt', () => {
-    const random = seeded(5)
-    const options = { string: E, range: { from: 0, to: 2, markedOnly: false } } as const
-    let previous: Prompt | undefined
-    for (let i = 0; i < 500; i++) {
-      const p = nextPrompt(options, random, previous)
-      if (previous) expect(p.pitchClass).not.toBe(previous.pitchClass)
-      previous = p
-    }
+  it('never strands a sharp next to its flat', () => {
+    // Frets 6–7: A♯, B♭ and B. Dealing B first would leave A♯ and B♭ to follow each other.
+    const deck = roundOf({ string: E, range: { from: 6, to: 7, markedOnly: false } })
+    const previous: Prompt = { string: E, pitchClass: 9, spelling: 'A' }
+    for (const r of [0, 0.5, 0.99]) expect(deal(deck, () => r, previous).spelling).not.toBe('B')
   })
 
-  it('repeats when only one prompt is possible', () => {
-    const options = { string: E, range: { from: 5, to: 5, markedOnly: false } } as const
-    const first = nextPrompt(options, Math.random)
-    const second = nextPrompt(options, Math.random, first)
-    expect(second.pitchClass).toBe(9)
+  it('repeats only when no other prompt is possible', () => {
+    // Frets 5–6: A, A♯ and B♭. After A♯ ends a round, the next round can't avoid a repeat.
+    const options: PromptOptions = { string: E, range: { from: 5, to: 6, markedOnly: false } }
+    const previous: Prompt = { string: E, pitchClass: 10, spelling: 'A♯' }
+    expect(deal(roundOf(options), () => 0, previous).spelling).toBe('A')
+    const lone = roundOf({ string: E, range: { from: 5, to: 5, markedOnly: false } })
+    expect(deal(lone, () => 0, lone[0])).toBe(lone[0])
+  })
+})
+
+describe('canFollow', () => {
+  const [Bb, B] = roundOf({ string: E, range: { from: 6, to: 7, markedOnly: false } }).slice(1)
+  const [As] = roundOf({ string: E, range: { from: 6, to: 6, markedOnly: false } })
+
+  it('is stuck when two spellings of one pitch class are all that is left', () => {
+    expect(canFollow([As, Bb], 11)).toBe(false)
+  })
+
+  it('is stuck when the one prompt left repeats the last', () => {
+    expect(canFollow([B], 11)).toBe(false)
+  })
+
+  it('finds an order that keeps them apart', () => {
+    expect(canFollow([As, Bb, B], 9)).toBe(true)
+    expect(canFollow([], 9)).toBe(true)
   })
 })
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { answer, next, reveal, start } from './drill'
 import { STANDARD_TUNING } from './notes'
 import type { PromptOptions } from './prompts'
-import { type PromptResult, byNote, median, summarize, toWorkOn } from './results'
+import { type PromptResult, byNote, median, roundsReached, summarize, toWorkOn } from './results'
 
 const [E] = STANDARD_TUNING
 
@@ -98,5 +98,29 @@ describe('toWorkOn', () => {
       { string: E, range: { from: 0, to: 7, markedOnly: false } },
     )
     expect(toWorkOn(notes).map((s) => s.spelling)).toEqual(['A', 'F'])
+  })
+})
+
+describe('roundsReached', () => {
+  // Frets 0–2 on the E string: E, F, F♯, G♭ — four prompts a round.
+  const drill = (rounds: number | null, dealt: number) => ({
+    results: [],
+    options: { string: E, range: { from: 0, to: 2, markedOnly: false }, rounds },
+    dealt,
+    durationMs: 0,
+  })
+
+  it('says every round was finished', () => {
+    expect(roundsReached(drill(3, 12))).toEqual({ round: 3, of: 3, complete: true })
+  })
+
+  it('says which round a drill stopped during', () => {
+    expect(roundsReached(drill(3, 5))).toEqual({ round: 2, of: 3, complete: false })
+    expect(roundsReached(drill(3, 4))).toEqual({ round: 2, of: 3, complete: false })
+    expect(roundsReached(drill(3, 1))).toEqual({ round: 1, of: 3, complete: false })
+  })
+
+  it('has nothing to say about an open-ended drill', () => {
+    expect(roundsReached(drill(null, 30))).toBeNull()
   })
 })
