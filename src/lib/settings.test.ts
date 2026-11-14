@@ -14,7 +14,7 @@ function memoryStorage(initial: Record<string, string> = {}) {
 
 const custom: Settings = {
   activeString: 'A',
-  range: { kind: 'marked' },
+  range: { from: 0, to: 21, markedOnly: true },
   accidentals: 'flats',
   gate: 0.03,
 }
@@ -22,7 +22,7 @@ const custom: Settings = {
 describe('settings', () => {
   it('defaults to the E string, the full neck', () => {
     expect(DEFAULT_SETTINGS.activeString).toBe('E')
-    expect(DEFAULT_SETTINGS.range).toEqual({ kind: 'span', from: 0, to: 21 })
+    expect(DEFAULT_SETTINGS.range).toEqual({ from: 0, to: 24, markedOnly: false })
     expect(DEFAULT_SETTINGS.accidentals).toBe('both')
   })
 
@@ -41,18 +41,25 @@ describe('settings', () => {
   })
 
   it('keeps valid fields and replaces invalid ones', () => {
-    const stored = JSON.stringify({ activeString: 'X', range: { kind: 'marked' }, accidentals: 'naturals', gate: 'loud' })
+    const stored = JSON.stringify({
+      activeString: 'X',
+      range: { from: 0, to: 21, markedOnly: true },
+      accidentals: 'naturals',
+      gate: 'loud',
+    })
     expect(loadSettings(memoryStorage({ 'bassquiz.settings': stored }))).toEqual({
       ...DEFAULT_SETTINGS,
-      range: { kind: 'marked' },
+      range: { from: 0, to: 21, markedOnly: true },
     })
   })
 
-  it('rejects a span outside the neck or running backwards', () => {
+  it('rejects a malformed fret range', () => {
     for (const range of [
-      { kind: 'span', from: -1, to: 5 },
-      { kind: 'span', from: 5, to: 22 },
-      { kind: 'span', from: 7, to: 3 },
+      { from: -1, to: 5, markedOnly: false },
+      { from: 5, to: 25, markedOnly: false },
+      { from: 7, to: 3, markedOnly: false },
+      { from: 0, to: 21 },
+      { kind: 'marked' },
     ]) {
       const stored = JSON.stringify({ ...custom, range })
       expect(loadSettings(memoryStorage({ 'bassquiz.settings': stored })).range).toEqual(DEFAULT_SETTINGS.range)

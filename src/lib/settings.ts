@@ -1,7 +1,7 @@
 import { type Accidentals, STANDARD_TUNING } from './notes'
 import type { FretRange } from './prompts'
 
-export const MAX_FRET = 21
+export const MAX_FRET = 24
 
 export interface Settings {
   /** Name of the string the drill prompts on. */
@@ -14,7 +14,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   activeString: STANDARD_TUNING[0].name,
-  range: { kind: 'span', from: 0, to: MAX_FRET },
+  range: { from: 0, to: MAX_FRET, markedOnly: false },
   accidentals: 'both',
   gate: 0.01,
 }
@@ -32,10 +32,9 @@ function isActiveString(value: unknown): value is string {
 function isFretRange(value: unknown): value is FretRange {
   if (typeof value !== 'object' || value === null) return false
   const range = value as Record<string, unknown>
-  if (range.kind === 'marked') return true
   const { from, to } = range
   return (
-    range.kind === 'span' &&
+    typeof range.markedOnly === 'boolean' &&
     Number.isInteger(from) &&
     Number.isInteger(to) &&
     (from as number) >= 0 &&

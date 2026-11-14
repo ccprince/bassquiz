@@ -30,39 +30,44 @@ function seeded(seed: number): () => number {
 
 describe('fretsIn', () => {
   it('lists a span of frets inclusively', () => {
-    expect(fretsIn({ kind: 'span', from: 0, to: 3 })).toEqual([0, 1, 2, 3])
+    expect(fretsIn({ from: 0, to: 3, markedOnly: false })).toEqual([0, 1, 2, 3])
   })
 
   it('lists the marked frets, without the open string', () => {
-    expect(fretsIn({ kind: 'marked' })).toEqual([3, 5, 7, 9, 12, 15, 17, 19, 21])
+    expect(fretsIn({ from: 0, to: 24, markedOnly: true })).toEqual([3, 5, 7, 9, 12, 15, 17, 19, 21, 24])
     expect(MARKED_FRETS).not.toContain(0)
+  })
+
+  it('narrows a span to the marked frets within it', () => {
+    expect(fretsIn({ from: 5, to: 12, markedOnly: true })).toEqual([5, 7, 9, 12])
+    expect(fretsIn({ from: 10, to: 11, markedOnly: true })).toEqual([])
   })
 })
 
 describe('pitchClassesOnString', () => {
   it('lists each distinct pitch class once', () => {
     // E string marked frets: G A B C♯ E G A B C♯
-    expect(pitchClassesOnString(E, fretsIn({ kind: 'marked' }))).toEqual([1, 4, 7, 9, 11])
+    expect(pitchClassesOnString(E, fretsIn({ from: 0, to: 21, markedOnly: true }))).toEqual([1, 4, 7, 9, 11])
   })
 
   it('covers all twelve pitch classes over a full span', () => {
-    expect(pitchClassesOnString(A, fretsIn({ kind: 'span', from: 0, to: 21 }))).toHaveLength(12)
+    expect(pitchClassesOnString(A, fretsIn({ from: 0, to: 21, markedOnly: false }))).toHaveLength(12)
   })
 })
 
 describe('positionsOf', () => {
   it('finds every fret on the string where the pitch class lies', () => {
-    expect(positionsOf(7, E, fretsIn({ kind: 'span', from: 0, to: 21 }))).toEqual([3, 15]) // G
-    expect(positionsOf(2, D, fretsIn({ kind: 'span', from: 0, to: 21 }))).toEqual([0, 12]) // D
+    expect(positionsOf(7, E, fretsIn({ from: 0, to: 21, markedOnly: false }))).toEqual([3, 15]) // G
+    expect(positionsOf(2, D, fretsIn({ from: 0, to: 21, markedOnly: false }))).toEqual([0, 12]) // D
   })
 
   it('respects the fret range', () => {
-    expect(positionsOf(7, E, fretsIn({ kind: 'span', from: 5, to: 21 }))).toEqual([15])
+    expect(positionsOf(7, E, fretsIn({ from: 5, to: 21, markedOnly: false }))).toEqual([15])
   })
 })
 
 describe('nextPrompt', () => {
-  const fullNeck = { kind: 'span', from: 0, to: 21 } as const
+  const fullNeck = { from: 0, to: 21, markedOnly: false } as const
 
   it('prompts on the given string', () => {
     const p = nextPrompt({ string: G, range: fullNeck }, seeded(1))
@@ -71,9 +76,9 @@ describe('nextPrompt', () => {
 
   it('draws only pitch classes reachable within the fret range', () => {
     const random = seeded(2)
-    const reachable = pitchClassesOnString(E, fretsIn({ kind: 'marked' }))
+    const reachable = pitchClassesOnString(E, fretsIn({ from: 0, to: 21, markedOnly: true }))
     for (let i = 0; i < 200; i++) {
-      const p = nextPrompt({ string: E, range: { kind: 'marked' } }, random)
+      const p = nextPrompt({ string: E, range: { from: 0, to: 21, markedOnly: true } }, random)
       expect(reachable).toContain(p.pitchClass)
     }
   })
@@ -84,7 +89,7 @@ describe('nextPrompt', () => {
     const counts = new Map<number, number>()
     const n = 10000
     for (let i = 0; i < n; i++) {
-      const p = nextPrompt({ string: E, range: { kind: 'marked' } }, random)
+      const p = nextPrompt({ string: E, range: { from: 0, to: 21, markedOnly: true } }, random)
       counts.set(p.pitchClass, (counts.get(p.pitchClass) ?? 0) + 1)
     }
     // The no-repeat rule doesn't favour any pitch class; each should be near n/5.
@@ -104,8 +109,8 @@ describe('nextPrompt', () => {
 
   it('uses both spellings for accidentals', () => {
     // pitch class index 0 (C♯ on the E string's marked frets), then spelling 0 or 1
-    const sharp = nextPrompt({ string: E, range: { kind: 'marked' } }, sequence(0, 0))
-    const flat = nextPrompt({ string: E, range: { kind: 'marked' } }, sequence(0, 0.9))
+    const sharp = nextPrompt({ string: E, range: { from: 0, to: 21, markedOnly: true } }, sequence(0, 0))
+    const flat = nextPrompt({ string: E, range: { from: 0, to: 21, markedOnly: true } }, sequence(0, 0.9))
     expect(sharp.spelling).toBe('C♯')
     expect(flat.spelling).toBe('D♭')
   })
@@ -123,7 +128,7 @@ describe('nextPrompt', () => {
 
   it('never repeats the previous prompt', () => {
     const random = seeded(5)
-    const options = { string: E, range: { kind: 'span', from: 0, to: 2 } } as const
+    const options = { string: E, range: { from: 0, to: 2, markedOnly: false } } as const
     let previous: Prompt | undefined
     for (let i = 0; i < 500; i++) {
       const p = nextPrompt(options, random, previous)
@@ -133,7 +138,7 @@ describe('nextPrompt', () => {
   })
 
   it('repeats when only one prompt is possible', () => {
-    const options = { string: E, range: { kind: 'span', from: 5, to: 5 } } as const
+    const options = { string: E, range: { from: 5, to: 5, markedOnly: false } } as const
     const first = nextPrompt(options, Math.random)
     const second = nextPrompt(options, Math.random, first)
     expect(second.pitchClass).toBe(9)

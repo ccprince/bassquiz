@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Frame } from './lib/attack'
   import { type Accidentals, STANDARD_TUNING } from './lib/notes'
+  import { fretsIn } from './lib/prompts'
   import { MAX_FRET, type Settings } from './lib/settings'
   import Heard from './Heard.svelte'
   import LevelMeter from './LevelMeter.svelte'
@@ -24,19 +25,11 @@
 
   const frets = Array.from({ length: MAX_FRET + 1 }, (_, f) => f)
 
-  // Remember the span while "marked frets only" is on, so switching back restores it.
-  let span = $state(
-    settings.range.kind === 'span' ? { from: settings.range.from, to: settings.range.to } : { from: 0, to: MAX_FRET },
-  )
-
-  function setMarkedOnly(markedOnly: boolean) {
-    settings.range = markedOnly ? { kind: 'marked' } : { kind: 'span', ...span }
-  }
-
   function setSpan(from: number, to: number) {
-    span = { from: Math.min(from, to), to: Math.max(from, to) }
-    settings.range = { kind: 'span', ...span }
+    settings.range = { ...settings.range, from: Math.min(from, to), to: Math.max(from, to) }
   }
+
+  const noFrets = $derived(fretsIn(settings.range).length === 0)
 
   const gateDb = $derived(Math.round(20 * Math.log10(settings.gate)))
 </script>
@@ -61,32 +54,29 @@
 
   <section>
     <h2>Frets</h2>
+    <div class="span">
+      <select
+        aria-label="Lowest fret"
+        value={settings.range.from}
+        onchange={(e) => setSpan(Number(e.currentTarget.value), settings.range.to)}
+      >
+        {#each frets as f (f)}<option value={f}>{f === 0 ? 'Open' : `Fret ${f}`}</option>{/each}
+      </select>
+      <span>to</span>
+      <select
+        aria-label="Highest fret"
+        value={settings.range.to}
+        onchange={(e) => setSpan(settings.range.from, Number(e.currentTarget.value))}
+      >
+        {#each frets as f (f)}<option value={f}>{f === 0 ? 'Open' : `Fret ${f}`}</option>{/each}
+      </select>
+    </div>
     <label class="check">
-      <input
-        type="checkbox"
-        checked={settings.range.kind === 'marked'}
-        onchange={(e) => setMarkedOnly(e.currentTarget.checked)}
-      />
-      Marked frets only <span class="muted">(3, 5, 7, 9, 12, 15, 17, 19, 21)</span>
+      <input type="checkbox" bind:checked={settings.range.markedOnly} />
+      Marked frets only <span class="muted">(3, 5, 7, 9, 12, 15, 17, 19, 21, 24)</span>
     </label>
-    {#if settings.range.kind === 'span'}
-      <div class="span">
-        <select
-          aria-label="Lowest fret"
-          value={span.from}
-          onchange={(e) => setSpan(Number(e.currentTarget.value), span.to)}
-        >
-          {#each frets as f (f)}<option value={f}>{f === 0 ? 'Open' : `Fret ${f}`}</option>{/each}
-        </select>
-        <span>to</span>
-        <select
-          aria-label="Highest fret"
-          value={span.to}
-          onchange={(e) => setSpan(span.from, Number(e.currentTarget.value))}
-        >
-          {#each frets as f (f)}<option value={f}>{f === 0 ? 'Open' : `Fret ${f}`}</option>{/each}
-        </select>
-      </div>
+    {#if noFrets}
+      <p class="error">There are no marked frets in this range.</p>
     {/if}
   </section>
 
@@ -133,7 +123,7 @@
     {/if}
   </section>
 
-  <button class="primary" onclick={onstart}>Start drill</button>
+  <button class="primary" disabled={noFrets} onclick={onstart}>Start drill</button>
 </div>
 
 <style>
@@ -158,7 +148,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    margin-top: 0.75rem;
+    margin-bottom: 0.75rem;
   }
   .gate {
     display: flex;

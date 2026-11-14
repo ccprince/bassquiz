@@ -1,8 +1,13 @@
 import { type Accidentals, type BassString, type PitchClass, pitchClassOf, spellingsOf } from './notes'
 
-export const MARKED_FRETS: readonly number[] = [3, 5, 7, 9, 12, 15, 17, 19, 21]
+export const MARKED_FRETS: readonly number[] = [3, 5, 7, 9, 12, 15, 17, 19, 21, 24]
 
-export type FretRange = { kind: 'span'; from: number; to: number } | { kind: 'marked' }
+/** A span of frets, optionally narrowed to the marked frets within it. */
+export interface FretRange {
+  from: number
+  to: number
+  markedOnly: boolean
+}
 
 export interface Prompt {
   string: BassString
@@ -20,10 +25,9 @@ export interface PromptOptions {
 export type Random = () => number
 
 export function fretsIn(range: FretRange): number[] {
-  if (range.kind === 'marked') return [...MARKED_FRETS]
   const frets: number[] = []
   for (let f = range.from; f <= range.to; f++) frets.push(f)
-  return frets
+  return range.markedOnly ? frets.filter((f) => MARKED_FRETS.includes(f)) : frets
 }
 
 export function pitchClassesOnString(string: BassString, frets: readonly number[]): PitchClass[] {

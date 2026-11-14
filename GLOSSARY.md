@@ -14,7 +14,7 @@ One string of the bass, identified by the note name of its open pitch (the E str
 A numbered position on a string; fret 0 is the open string.
 
 **Marked fret**:
-A fret carrying an inlay marker: 3, 5, 7, 9, 12, 15, 17, 19, 21.
+A fret carrying an inlay marker: 3, 5, 7, 9, 12, 15, 17, 19, 21, 24.
 _Avoid_: Dot fret, inlay
 
 ## Notes
@@ -46,7 +46,7 @@ _Avoid_: Test, exam
 The one string a drill draws prompts from, chosen by the player. Only one, because the app can't tell which string a note was played on.
 
 **Fret range**:
-The frets a drill draws prompts from: either a contiguous span (default 0–21) or the marked frets only.
+The frets a drill draws prompts from: a contiguous span (default 0–24), optionally narrowed to the marked frets within it.
 
 **Attack**:
 The onset of a newly played note. Each attack yields at most one answer; sound still ringing from before a prompt is not an answer.

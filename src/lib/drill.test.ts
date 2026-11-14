@@ -4,7 +4,7 @@ import { type DrillState, answer, next, reveal, start } from './drill'
 import type { PromptOptions } from './prompts'
 
 const [E] = STANDARD_TUNING
-const options: PromptOptions = { string: E, range: { kind: 'marked' } }
+const options: PromptOptions = { string: E, range: { from: 0, to: 21, markedOnly: true } }
 
 /** A drill prompting for A on the E string. */
 const promptingA: DrillState = {
