@@ -35,12 +35,16 @@ _Avoid_: Question, challenge
 The note the player plays in response to a prompt; correct when its pitch class matches the prompt's. The string is taken on trust.
 
 **Drill**:
-An untimed, open-ended run of prompts with immediate right/wrong feedback; a wrong answer is retried until correct. A drill remembers its misses until it stops; nothing is scored or saved.
+An untimed, open-ended run of prompts with immediate right/wrong feedback; a wrong answer is retried until correct. A drill remembers its misses until it stops, then shows its results; nothing is saved.
 _Avoid_: Practice session, exercise
 
 **Miss**:
 A prompt whose first answer was wrong, or that was revealed. A miss counts against the prompt's spelling, not its whole pitch class: missing A♯ says nothing about B♭.
 _Avoid_: Mistake, error
+
+**Results**:
+What a drill shows when it stops: how many prompts were answered right first time, how long answers took, and each note's misses, graded on the fretboard as never, sometimes, or always missed. Shown once and discarded.
+_Avoid_: Score, report
 
 **Review**:
 A prompt asked again because its spelling was missed: once after two other prompts, then again after five more. Two reviews answered right first time return the spelling to random selection; a missed review starts the schedule over. While under review, a spelling is asked only by its reviews.

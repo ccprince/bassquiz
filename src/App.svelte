@@ -1,8 +1,10 @@
 <script lang="ts">
   import { type Answer, AttackDetector, type Frame } from './lib/attack'
   import { type Listener, listen } from './lib/listener'
+  import type { FinishedDrill } from './lib/results'
   import { loadSettings, saveSettings } from './lib/settings'
   import DrillScreen from './DrillScreen.svelte'
+  import ResultsScreen from './ResultsScreen.svelte'
   import SettingsScreen from './SettingsScreen.svelte'
 
   function browserStorage() {
@@ -17,7 +19,8 @@
   let settings = $state(loadSettings(storage))
   $effect(() => saveSettings(storage, $state.snapshot(settings)))
 
-  let screen: 'settings' | 'drill' = $state('settings')
+  let screen: 'settings' | 'drill' | 'results' = $state('settings')
+  let finished: FinishedDrill | null = $state(null)
   let frame: Frame | null = $state(null)
   let listening = $state(false)
   let micError: string | null = $state(null)
@@ -50,6 +53,11 @@
     if (await startListening()) screen = 'drill'
   }
 
+  function stopDrill(drill: FinishedDrill) {
+    finished = drill
+    screen = drill.results.length ? 'results' : 'settings'
+  }
+
   function onAnswer(handler: (answer: Answer) => void) {
     answerHandler = handler
     return () => {
@@ -61,13 +69,19 @@
 <main>
   {#if screen === 'settings'}
     <SettingsScreen bind:settings {frame} {listening} {micError} onlisten={startListening} onstart={startDrill} />
+  {:else if screen === 'results' && finished}
+    <ResultsScreen
+      {...finished}
+      onagain={startDrill}
+      ondone={() => (screen = 'settings')}
+    />
   {:else}
     <DrillScreen
       {settings}
       {frame}
       {onAnswer}
       ignoreCurrent={() => detector.ignoreCurrent()}
-      onstop={() => (screen = 'settings')}
+      onstop={stopDrill}
     />
   {/if}
 </main>

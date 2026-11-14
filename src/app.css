@@ -7,6 +7,7 @@
   --accent: #2f6fdb;
   --correct: #1f8a4c;
   --wrong: #c2412d;
+  --sometimes: #b7791f;
 
   color-scheme: light dark;
   font: 18px/1.45 system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -22,6 +23,7 @@
     --accent: #5b95f5;
     --correct: #4cc27f;
     --wrong: #f07a63;
+    --sometimes: #e0a43a;
   }
 }
 

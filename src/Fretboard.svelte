@@ -1,10 +1,29 @@
 <script lang="ts">
   import { type BassString, STANDARD_TUNING } from './lib/notes'
   import { MARKED_FRETS } from './lib/prompts'
+  import type { Grade } from './lib/results'
   import { MAX_FRET } from './lib/settings'
 
-  /** Highlights `positions` (frets) on `string`. */
-  let { string, positions, label }: { string: BassString; positions: number[]; label: string } = $props()
+  export interface Dot {
+    fret: number
+    /** Which note it stands for; dots sharing a key are selected together. */
+    key?: string
+    /** Colours the dot; defaults to the accent colour. */
+    grade?: Grade
+    title?: string
+  }
+
+  interface Props {
+    /** The string the dots are on. */
+    string: BassString
+    dots: Dot[]
+    label: string
+    selected?: string | null
+    /** Makes the dots buttons. */
+    onselect?: (key: string) => void
+  }
+
+  let { string, dots, label, selected = null, onselect }: Props = $props()
 
   const NUT_X = 44
   const FRET_W = 40
@@ -44,8 +63,28 @@
     <text class="string-name" class:active={s.name === string.name} x="8" y={stringY(s) + 5}>{s.name}</text>
   {/each}
 
-  {#each positions as f (f)}
-    <circle class="note" cx={noteX(f)} cy={stringY(string)} r="10" />
+  {#each dots as d (d.fret)}
+    {#if onselect && d.key}
+      {@const key = d.key}
+      <g
+        class="dot {d.grade}"
+        class:selected={selected === key}
+        role="button"
+        tabindex="0"
+        aria-label={d.title}
+        aria-pressed={selected === key}
+        onclick={() => onselect(key)}
+        onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onselect(key))}
+      >
+        <title>{d.title}</title>
+        <circle class="hit" cx={noteX(d.fret)} cy={stringY(string)} r="16" />
+        <circle class="note" cx={noteX(d.fret)} cy={stringY(string)} r="10" />
+      </g>
+    {:else}
+      <circle class="note dot {d.grade}" cx={noteX(d.fret)} cy={stringY(string)} r="10">
+        {#if d.title}<title>{d.title}</title>{/if}
+      </circle>
+    {/if}
   {/each}
 </svg>
 
@@ -89,5 +128,40 @@
   }
   .note {
     fill: var(--accent);
+  }
+  .dot .note,
+  .note.dot {
+    stroke: var(--surface);
+    stroke-width: 2;
+  }
+  .never .note,
+  .note.never {
+    fill: var(--correct);
+  }
+  .sometimes .note,
+  .note.sometimes {
+    fill: var(--sometimes);
+  }
+  .always .note,
+  .note.always {
+    fill: var(--wrong);
+  }
+  .unasked .note,
+  .note.unasked {
+    fill: var(--surface);
+    stroke: var(--muted);
+    stroke-dasharray: 3 3;
+  }
+  g[role='button'] {
+    cursor: pointer;
+    outline: none;
+  }
+  .hit {
+    fill: transparent;
+  }
+  .selected .note,
+  g[role='button']:focus-visible .note {
+    stroke: var(--text);
+    stroke-width: 3;
   }
 </style>

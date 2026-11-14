@@ -4,6 +4,7 @@
   import { answer, next, reveal, start } from './lib/drill'
   import { STANDARD_TUNING, noteName } from './lib/notes'
   import { fretsIn, positionsOf } from './lib/prompts'
+  import type { FinishedDrill } from './lib/results'
   import type { Settings } from './lib/settings'
   import Fretboard from './Fretboard.svelte'
   import Heard from './Heard.svelte'
@@ -14,7 +15,7 @@
     frame: Frame | null
     onAnswer: (handler: (answer: Answer) => void) => () => void
     ignoreCurrent: () => void
-    onstop: () => void
+    onstop: (drill: FinishedDrill) => void
   }
 
   let { settings, frame, onAnswer, ignoreCurrent, onstop }: Props = $props()
@@ -28,7 +29,8 @@
     accidentals: settings.accidentals,
   }))
 
-  let drill = $state(start(options, Math.random))
+  const startedAt = performance.now()
+  let drill = $state(start(options, Math.random, startedAt))
   let advanceTimer: ReturnType<typeof setTimeout> | undefined
 
   const positions = $derived(positionsOf(drill.prompt.pitchClass, drill.prompt.string, fretsIn(options.range)))
@@ -38,7 +40,7 @@
     ignoreCurrent()
     const unsubscribe = onAnswer((heard) => {
       if (drill.status === 'correct') return
-      drill = answer(drill, heard)
+      drill = answer(drill, heard, performance.now())
       if (drill.status === 'correct') advanceTimer = setTimeout(advance, ADVANCE_MS)
     })
     return () => {
@@ -47,15 +49,19 @@
     }
   })
 
+  function stop() {
+    onstop({ results: drill.results, options, durationMs: performance.now() - startedAt })
+  }
+
   function advance() {
-    drill = next(drill, options, Math.random)
+    drill = next(drill, options, Math.random, performance.now())
     ignoreCurrent()
   }
 </script>
 
 <div class="screen drill">
   <header>
-    <button class="secondary" onclick={onstop}>Stop</button>
+    <button class="secondary" onclick={stop}>Stop</button>
     <div class="input">
       <LevelMeter level={frame?.level ?? 0} gate={settings.gate} />
       <span class="muted small">Heard: <Heard {frame} gate={settings.gate} accidentals={options.accidentals} /></span>
@@ -83,7 +89,7 @@
     {#if showFretboard}
       <Fretboard
         string={drill.prompt.string}
-        {positions}
+        dots={positions.map((fret) => ({ fret }))}
         label="{drill.prompt.spelling} on the {drill.prompt.string.name} string is at fret {positions.join(' and ')}"
       />
     {/if}
