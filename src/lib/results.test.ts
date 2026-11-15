@@ -16,7 +16,7 @@ const result = (spelling: string, pitchClass: number, more: Partial<PromptResult
 })
 
 describe('recording results', () => {
-  const options: PromptOptions = { string: E, range: { from: 0, to: 24, markedOnly: false } }
+  const options: PromptOptions = { string: E, octave: { start: 0, markedOnly: false } }
   const lowest = () => 0
   const heard = (pc: number) => ({ midi: 36 + pc, cents: 0 })
 
@@ -63,30 +63,31 @@ describe('median', () => {
 })
 
 describe('byNote', () => {
-  // Frets 0–7 on the E string: E F F♯/G♭ G G♯/A♭ A A♯/B♭ B.
-  const options: PromptOptions = { string: E, range: { from: 0, to: 7, markedOnly: false } }
+  // Marked frets 3–9 on the E string: G A B C♯/D♭.
+  const options: PromptOptions = { string: E, octave: { start: 0, markedOnly: true } }
 
   it('grades every reachable note by how often it was missed', () => {
     const notes = byNote(
-      [result('F', 5), result('F', 5), result('G', 7), result('G', 7, { wrong: 1 }), result('A', 9, { revealed: true })],
+      [result('B', 11), result('B', 11), result('G', 7), result('G', 7, { wrong: 1 }), result('A', 9, { revealed: true })],
       options,
     )
     const grades = Object.fromEntries(notes.map((n) => [n.name, n.grade]))
-    expect(grades).toMatchObject({ F: 'never', G: 'sometimes', A: 'always', B: 'unasked' })
+    expect(grades).toEqual({ B: 'never', G: 'sometimes', A: 'always', 'C♯/D♭': 'unasked' })
   })
 
-  it('places each note at its frets within the range', () => {
-    const notes = byNote([], { string: E, range: { from: 0, to: 24, markedOnly: false } })
-    expect(notes.find((n) => n.name === 'E')?.frets).toEqual([0, 12, 24])
+  it('places each note at its fret within the octave', () => {
+    const notes = byNote([], { string: E, octave: { start: 5, markedOnly: false } })
+    expect(notes.find((n) => n.name === 'E')?.fret).toBe(12)
+    expect(notes.find((n) => n.name === 'G')?.fret).toBe(15)
   })
 
   it('keeps enharmonic spellings apart', () => {
-    const note = byNote([result('A♯', 10, { wrong: 1 }), result('B♭', 10)], options).find((n) => n.pitchClass === 10)
-    expect(note?.name).toBe('A♯/B♭')
+    const note = byNote([result('C♯', 1, { wrong: 1 }), result('D♭', 1)], options).find((n) => n.pitchClass === 1)
+    expect(note?.name).toBe('C♯/D♭')
     expect(note?.grade).toBe('sometimes')
     expect(note?.spellings).toEqual([
-      { spelling: 'A♯', asked: 1, missed: 1 },
-      { spelling: 'B♭', asked: 1, missed: 0 },
+      { spelling: 'C♯', asked: 1, missed: 1 },
+      { spelling: 'D♭', asked: 1, missed: 0 },
     ])
   })
 })
@@ -95,17 +96,17 @@ describe('toWorkOn', () => {
   it('lists missed spellings, most often missed first', () => {
     const notes = byNote(
       [result('F', 5, { wrong: 1 }), result('F', 5), result('G', 7), result('A', 9, { revealed: true })],
-      { string: E, range: { from: 0, to: 7, markedOnly: false } },
+      { string: E, octave: { start: 0, markedOnly: false } },
     )
     expect(toWorkOn(notes).map((s) => s.spelling)).toEqual(['A', 'F'])
   })
 })
 
 describe('roundsReached', () => {
-  // Frets 0–2 on the E string: E, F, F♯, G♭ — four prompts a round.
+  // Marked frets 3–9 on the E string, in sharps: C♯, G, A, B — four prompts a round.
   const drill = (rounds: number | null, dealt: number) => ({
     results: [],
-    options: { string: E, range: { from: 0, to: 2, markedOnly: false }, rounds },
+    options: { string: E, octave: { start: 0, markedOnly: true }, accidentals: 'sharps' as const, rounds },
     dealt,
     durationMs: 0,
   })

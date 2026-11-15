@@ -55,14 +55,15 @@ A prompt asked again because its spelling was missed: once after two other promp
 _Avoid_: Retry, repeat, comeback
 
 **Round**:
-A pass in which a drill asks every spelling reachable in its fret range once. A limited drill stops after a chosen number of rounds.
+A pass in which a drill asks every spelling in its octave once. A limited drill stops after a chosen number of rounds.
 _Avoid_: Lap, cycle, set
 
 **Active string**:
 The one string a drill draws prompts from, chosen by the player. Only one, because the app can't tell which string a note was played on.
 
-**Fret range**:
-The frets a drill draws prompts from: a contiguous span (default 0–24), optionally narrowed to the marked frets within it.
+**Octave**:
+The twelve consecutive frets a drill draws prompts from, beginning at a chosen starting fret (open to 13), optionally narrowed to the marked frets within it. Each pitch class lies at exactly one fret of an octave.
+_Avoid_: Fret range, position, window
 
 **Attack**:
 The onset of a newly played note. Each attack yields at most one answer; sound still ringing from before a prompt is not an answer.

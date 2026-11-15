@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { Frame } from './lib/attack'
   import { type Accidentals, STANDARD_TUNING } from './lib/notes'
-  import { fretsIn, roundOf } from './lib/prompts'
-  import { MAX_FRET, ROUND_CHOICES, type Settings } from './lib/settings'
+  import { OCTAVE_FRETS, fretsIn, roundOf } from './lib/prompts'
+  import { LAST_START, ROUND_CHOICES, type Settings } from './lib/settings'
   import Heard from './Heard.svelte'
   import LevelMeter from './LevelMeter.svelte'
 
@@ -23,17 +23,15 @@
     { value: 'both', label: 'Both' },
   ]
 
-  const frets = Array.from({ length: MAX_FRET + 1 }, (_, f) => f)
+  const starts = Array.from({ length: LAST_START + 1 }, (_, f) => f)
 
-  function setSpan(from: number, to: number) {
-    settings.range = { ...settings.range, from: Math.min(from, to), to: Math.max(from, to) }
-  }
-
-  const noFrets = $derived(fretsIn(settings.range).length === 0)
+  const start = $derived(settings.octave.start)
+  const end = $derived(start + OCTAVE_FRETS - 1)
+  const marked = $derived(fretsIn({ start, markedOnly: true }))
   const roundSize = $derived(
     roundOf({
       string: STANDARD_TUNING.find((s) => s.name === settings.activeString) ?? STANDARD_TUNING[0],
-      range: settings.range,
+      octave: settings.octave,
       accidentals: settings.accidentals,
     }).length,
   )
@@ -63,28 +61,18 @@
     <h2>Frets</h2>
     <div class="span">
       <select
-        aria-label="Lowest fret"
-        value={settings.range.from}
-        onchange={(e) => setSpan(Number(e.currentTarget.value), settings.range.to)}
+        aria-label="Starting fret"
+        value={start}
+        onchange={(e) => (settings.octave = { ...settings.octave, start: Number(e.currentTarget.value) })}
       >
-        {#each frets as f (f)}<option value={f}>{f === 0 ? 'Open' : `Fret ${f}`}</option>{/each}
+        {#each starts as f (f)}<option value={f}>{f === 0 ? 'Open' : `Fret ${f}`}</option>{/each}
       </select>
-      <span>to</span>
-      <select
-        aria-label="Highest fret"
-        value={settings.range.to}
-        onchange={(e) => setSpan(settings.range.from, Number(e.currentTarget.value))}
-      >
-        {#each frets as f (f)}<option value={f}>{f === 0 ? 'Open' : `Fret ${f}`}</option>{/each}
-      </select>
+      <span class="muted">{start === 0 ? `Open to fret ${end}` : `Frets ${start}–${end}`}</span>
     </div>
     <label class="check">
-      <input type="checkbox" bind:checked={settings.range.markedOnly} />
-      Marked frets only <span class="muted">(3, 5, 7, 9, 12, 15, 17, 19, 21, 24)</span>
+      <input type="checkbox" bind:checked={settings.octave.markedOnly} />
+      Marked frets only <span class="muted">({marked.join(', ')})</span>
     </label>
-    {#if noFrets}
-      <p class="error">There are no marked frets in this range.</p>
-    {/if}
   </section>
 
   <section>
@@ -163,7 +151,7 @@
     {/if}
   </section>
 
-  <button class="primary" disabled={noFrets} onclick={onstart}>Start drill</button>
+  <button class="primary" onclick={onstart}>Start drill</button>
 </div>
 
 <style>

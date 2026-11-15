@@ -1,5 +1,5 @@
 import { type Accidentals, STANDARD_TUNING, pitchClassOf, spellingsOf } from './notes'
-import { type Prompt, fretsIn, positionsOf } from './prompts'
+import type { Prompt } from './prompts'
 import { MAX_FRET } from './settings'
 
 /** A spelling as words a speech engine reads reliably: "A♯" becomes "A sharp". */
@@ -22,12 +22,9 @@ export function spokenWrong(midi: number, prompt: Prompt, accidentals: Accidenta
   return `That was ${spokenSpelling(spelling)}.`
 }
 
-/** Where a revealed prompt lies: "Fret 6 or 18", or "Open or fret 12" when it includes the open string. */
-export function spokenReveal(frets: readonly number[]): string {
-  const fretted = frets.filter((f) => f > 0)
-  const list = fretted.join(' or ')
-  if (fretted.length === frets.length) return `Fret ${list}.`
-  return fretted.length ? `Open or fret ${list}.` : 'Open.'
+/** Where a revealed prompt lies: "Fret 6", or "Open" for the open string. */
+export function spokenReveal(fret: number): string {
+  return fret === 0 ? 'Open.' : `Fret ${fret}.`
 }
 
 /** The file holding a phrase's recording: "That was G flat." is that-was-g-flat.mp3. */
@@ -38,7 +35,7 @@ export function clipFile(phrase: string): string {
     .replace(/^-|-$/g, '')}.mp3`
 }
 
-/** Everything a drill can say, each once: every prompt, every wrong answer, and every reveal on any string and fret range. */
+/** Everything a drill can say, each once: every prompt, every wrong answer, and every reveal. */
 export function everyPhrase(): string[] {
   const phrases = new Set<string>()
   const string = STANDARD_TUNING[0]
@@ -51,18 +48,6 @@ export function everyPhrase(): string[] {
       for (let midi = 0; midi < 12; midi++) phrases.add(spokenWrong(midi, prompt, accidentals))
     }
   }
-  for (const s of STANDARD_TUNING) {
-    for (let from = 0; from <= MAX_FRET; from++) {
-      for (let to = from; to <= MAX_FRET; to++) {
-        for (const markedOnly of [false, true]) {
-          const frets = fretsIn({ from, to, markedOnly })
-          for (let pc = 0; pc < 12; pc++) {
-            const positions = positionsOf(pc, s, frets)
-            if (positions.length) phrases.add(spokenReveal(positions))
-          }
-        }
-      }
-    }
-  }
+  for (let fret = 0; fret <= MAX_FRET; fret++) phrases.add(spokenReveal(fret))
   return [...phrases]
 }

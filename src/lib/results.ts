@@ -1,6 +1,6 @@
 import type { DrillOptions } from './drill'
 import { type PitchClass, spellingsOf } from './notes'
-import { type PromptOptions, fretsIn, pitchClassesOnString, positionsOf, roundOf } from './prompts'
+import { type PromptOptions, fretOf, fretsIn, pitchClassesOnString, roundOf } from './prompts'
 
 /** How one prompt went, recorded when it was answered correctly. */
 export interface PromptResult {
@@ -52,8 +52,8 @@ export interface NoteResults {
   pitchClass: PitchClass
   /** Its spellings joined, e.g. "A♯/B♭". */
   name: string
-  /** Where it lies within the drill's fret range. */
-  frets: number[]
+  /** Where it lies within the drill's octave. */
+  fret: number
   asked: number
   missed: number
   wrong: number
@@ -109,7 +109,7 @@ function grade(asked: number, missed: number): Grade {
 
 /** Results for every note the drill could have asked, lowest pitch class first. */
 export function byNote(results: readonly PromptResult[], options: PromptOptions): NoteResults[] {
-  const frets = fretsIn(options.range)
+  const frets = fretsIn(options.octave)
   return pitchClassesOnString(options.string, frets).map((pitchClass) => {
     const asked = results.filter((r) => r.pitchClass === pitchClass)
     const missed = asked.filter(isMiss).length
@@ -117,7 +117,7 @@ export function byNote(results: readonly PromptResult[], options: PromptOptions)
     return {
       pitchClass,
       name: spellings.join('/'),
-      frets: positionsOf(pitchClass, options.string, frets),
+      fret: fretOf(pitchClass, options.string, frets) as number,
       asked: asked.length,
       missed,
       wrong: asked.reduce((n, r) => n + r.wrong, 0),

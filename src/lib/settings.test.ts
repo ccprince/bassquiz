@@ -14,7 +14,7 @@ function memoryStorage(initial: Record<string, string> = {}) {
 
 const custom: Settings = {
   activeString: 'A',
-  range: { from: 0, to: 21, markedOnly: true },
+  octave: { start: 5, markedOnly: true },
   accidentals: 'flats',
   rounds: 3,
   gate: 0.03,
@@ -22,9 +22,9 @@ const custom: Settings = {
 }
 
 describe('settings', () => {
-  it('defaults to the E string, the full neck', () => {
+  it('defaults to the E string, the octave from the open string', () => {
     expect(DEFAULT_SETTINGS.activeString).toBe('E')
-    expect(DEFAULT_SETTINGS.range).toEqual({ from: 0, to: 24, markedOnly: false })
+    expect(DEFAULT_SETTINGS.octave).toEqual({ start: 0, markedOnly: false })
     expect(DEFAULT_SETTINGS.accidentals).toBe('both')
     expect(DEFAULT_SETTINGS.rounds).toBeNull()
     expect(DEFAULT_SETTINGS.spokenPrompts).toBe(false)
@@ -53,7 +53,7 @@ describe('settings', () => {
   it('keeps valid fields and replaces invalid ones', () => {
     const stored = JSON.stringify({
       activeString: 'X',
-      range: { from: 0, to: 21, markedOnly: true },
+      octave: { start: 5, markedOnly: true },
       accidentals: 'naturals',
       rounds: 4,
       gate: 'loud',
@@ -61,21 +61,27 @@ describe('settings', () => {
     })
     expect(loadSettings(memoryStorage({ 'bassquiz.settings': stored }))).toEqual({
       ...DEFAULT_SETTINGS,
-      range: { from: 0, to: 21, markedOnly: true },
+      octave: { start: 5, markedOnly: true },
     })
   })
 
-  it('rejects a malformed fret range', () => {
-    for (const range of [
-      { from: -1, to: 5, markedOnly: false },
-      { from: 5, to: 25, markedOnly: false },
-      { from: 7, to: 3, markedOnly: false },
-      { from: 0, to: 21 },
+  it('rejects a malformed octave', () => {
+    for (const octave of [
+      { start: -1, markedOnly: false },
+      { start: 14, markedOnly: false },
+      { start: 2.5, markedOnly: false },
+      { start: 5 },
       { kind: 'marked' },
     ]) {
-      const stored = JSON.stringify({ ...custom, range })
-      expect(loadSettings(memoryStorage({ 'bassquiz.settings': stored })).range).toEqual(DEFAULT_SETTINGS.range)
+      const stored = JSON.stringify({ ...custom, octave })
+      expect(loadSettings(memoryStorage({ 'bassquiz.settings': stored })).octave).toEqual(DEFAULT_SETTINGS.octave)
     }
+  })
+
+  it('starts from the open string when an old fret range is stored', () => {
+    const { octave, ...rest } = custom
+    const stored = JSON.stringify({ ...rest, range: { from: 5, to: 12, markedOnly: true } })
+    expect(loadSettings(memoryStorage({ 'bassquiz.settings': stored })).octave).toEqual(DEFAULT_SETTINGS.octave)
   })
 
   it('survives storage that throws', () => {

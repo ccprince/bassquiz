@@ -1,7 +1,9 @@
 import { type Accidentals, STANDARD_TUNING } from './notes'
-import type { FretRange } from './prompts'
+import { type Octave, OCTAVE_FRETS } from './prompts'
 
 export const MAX_FRET = 24
+/** The highest fret an octave can start at and still fit on the neck. */
+export const LAST_START = MAX_FRET - OCTAVE_FRETS + 1
 
 /** The drill lengths on offer, in rounds. */
 export const ROUND_CHOICES: readonly number[] = [1, 2, 3, 5]
@@ -9,7 +11,7 @@ export const ROUND_CHOICES: readonly number[] = [1, 2, 3, 5]
 export interface Settings {
   /** Name of the string the drill prompts on. */
   activeString: string
-  range: FretRange
+  octave: Octave
   accidentals: Accidentals
   /** How many rounds a drill runs for; null for open-ended. */
   rounds: number | null
@@ -21,7 +23,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   activeString: STANDARD_TUNING[0].name,
-  range: { from: 0, to: MAX_FRET, markedOnly: false },
+  octave: { start: 0, markedOnly: false },
   accidentals: 'both',
   rounds: null,
   gate: 0.01,
@@ -38,17 +40,14 @@ function isActiveString(value: unknown): value is string {
   return typeof value === 'string' && STRING_NAMES.has(value)
 }
 
-function isFretRange(value: unknown): value is FretRange {
+function isOctave(value: unknown): value is Octave {
   if (typeof value !== 'object' || value === null) return false
-  const range = value as Record<string, unknown>
-  const { from, to } = range
+  const { start, markedOnly } = value as Record<string, unknown>
   return (
-    typeof range.markedOnly === 'boolean' &&
-    Number.isInteger(from) &&
-    Number.isInteger(to) &&
-    (from as number) >= 0 &&
-    (from as number) <= (to as number) &&
-    (to as number) <= MAX_FRET
+    typeof markedOnly === 'boolean' &&
+    Number.isInteger(start) &&
+    (start as number) >= 0 &&
+    (start as number) <= LAST_START
   )
 }
 
@@ -73,7 +72,7 @@ export function loadSettings(storage: Storage): Settings {
   }
   return {
     activeString: isActiveString(stored.activeString) ? stored.activeString : DEFAULT_SETTINGS.activeString,
-    range: isFretRange(stored.range) ? stored.range : DEFAULT_SETTINGS.range,
+    octave: isOctave(stored.octave) ? stored.octave : DEFAULT_SETTINGS.octave,
     accidentals: isAccidentals(stored.accidentals) ? stored.accidentals : DEFAULT_SETTINGS.accidentals,
     rounds: isRounds(stored.rounds) ? stored.rounds : DEFAULT_SETTINGS.rounds,
     gate: isGate(stored.gate) ? stored.gate : DEFAULT_SETTINGS.gate,

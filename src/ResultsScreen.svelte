@@ -1,6 +1,7 @@
 <script lang="ts">
   import { type FinishedDrill, type Grade, byNote, roundsReached, summarize, toWorkOn } from './lib/results'
   import Fretboard, { type Dot } from './Fretboard.svelte'
+  import { OCTAVE_FRETS } from './lib/prompts'
 
   interface Props extends FinishedDrill {
     onagain: () => void
@@ -22,14 +23,12 @@
   const notes = $derived(byNote(results, options))
   const workOn = $derived(toWorkOn(notes))
   const dots: Dot[] = $derived(
-    notes.flatMap((n) =>
-      n.frets.map((fret) => ({
-        fret,
-        key: n.name,
-        grade: n.grade,
-        title: n.asked ? `${n.name}: right first time ${n.asked - n.missed} of ${n.asked}` : `${n.name}: not asked`,
-      })),
-    ),
+    notes.map((n) => ({
+      fret: n.fret,
+      key: n.name,
+      grade: n.grade,
+      title: n.asked ? `${n.name}: right first time ${n.asked - n.missed} of ${n.asked}` : `${n.name}: not asked`,
+    })),
   )
 
   let selected: string | null = $state(null)
@@ -69,6 +68,8 @@
       {string}
       {dots}
       {selected}
+      first={options.octave.start}
+      last={options.octave.start + OCTAVE_FRETS - 1}
       onselect={(key) => (selected = selected === key ? null : key)}
       label="How often each note was missed on the {string.name} string"
     />
@@ -83,14 +84,14 @@
         <div class="name">{note.name}</div>
         <div class="muted">{gradeLabel(note.grade)}</div>
         {#if note.asked === 0}
-          <p class="muted small">Not asked this drill. {note.frets.length > 1 ? 'Frets' : 'Fret'} {note.frets.join(', ')}.</p>
+          <p class="muted small">Not asked this drill. Fret {note.fret}.</p>
         {:else}
           <dl>
             <div><dt>Right first time</dt><dd>{note.asked - note.missed} of {note.asked}</dd></div>
             <div><dt>Wrong notes</dt><dd>{note.wrong}</dd></div>
             <div><dt>Revealed</dt><dd>{note.revealed}</dd></div>
             <div><dt>Typical time</dt><dd>{seconds(note.medianMs)}</dd></div>
-            <div><dt>Frets</dt><dd>{note.frets.join(', ')}</dd></div>
+            <div><dt>Fret</dt><dd>{note.fret}</dd></div>
           </dl>
         {/if}
         {#if note.asked > 0 && note.spellings.length > 1}

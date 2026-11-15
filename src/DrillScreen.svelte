@@ -3,7 +3,7 @@
   import type { Answer, Frame } from './lib/attack'
   import { answer, isFinished, next, reveal, start, totalDealt } from './lib/drill'
   import { STANDARD_TUNING, noteName } from './lib/notes'
-  import { fretsIn, positionsOf } from './lib/prompts'
+  import { fretOf, fretsIn } from './lib/prompts'
   import type { FinishedDrill } from './lib/results'
   import type { Settings } from './lib/settings'
   import { spokenPrompt, spokenReveal, spokenWrong } from './lib/spoken'
@@ -30,7 +30,7 @@
   // Settings can't change during a drill, so read them once.
   const options = untrack(() => ({
     string: STANDARD_TUNING.find((s) => s.name === settings.activeString) ?? STANDARD_TUNING[0],
-    range: settings.range,
+    octave: settings.octave,
     accidentals: settings.accidentals,
     rounds: settings.rounds,
   }))
@@ -49,7 +49,7 @@
       )
     : null
 
-  const positions = $derived(positionsOf(drill.prompt.pitchClass, drill.prompt.string, fretsIn(options.range)))
+  const fret = $derived(fretOf(drill.prompt.pitchClass, drill.prompt.string, fretsIn(options.octave)) as number)
   const showFretboard = $derived(drill.status === 'correct' || drill.status === 'revealed')
 
   onMount(() => {
@@ -86,7 +86,7 @@
 
   function showReveal() {
     drill = reveal(drill)
-    voice?.say(spokenReveal(positions))
+    voice?.say(spokenReveal(fret))
   }
 </script>
 
@@ -134,8 +134,8 @@
     {#if showFretboard}
       <Fretboard
         string={drill.prompt.string}
-        dots={positions.map((fret) => ({ fret }))}
-        label="{drill.prompt.spelling} on the {drill.prompt.string.name} string is at fret {positions.join(' and ')}"
+        dots={[{ fret }]}
+        label="{drill.prompt.spelling} on the {drill.prompt.string.name} string is at fret {fret}"
       />
     {/if}
   </div>

@@ -21,9 +21,12 @@
     selected?: string | null
     /** Makes the dots buttons. */
     onselect?: (key: string) => void
+    /** The frets drawn; drawing less than the whole neck numbers every fret. */
+    first?: number
+    last?: number
   }
 
-  let { string, dots, label, selected = null, onselect }: Props = $props()
+  let { string, dots, label, selected = null, onselect, first = 0, last = MAX_FRET }: Props = $props()
 
   const NUT_X = 44
   const FRET_W = 40
@@ -32,10 +35,17 @@
   // Highest string drawn at the top, as in tab.
   const strings = [...STANDARD_TUNING].reverse()
   const bottom = TOP + STRING_GAP * (strings.length - 1)
-  const width = NUT_X + FRET_W * MAX_FRET + 8
   const height = bottom + 34
 
-  const fretX = (f: number) => NUT_X + f * FRET_W
+  // The wire at the left edge: the nut, or the wire behind the first fret drawn.
+  const edge = $derived(Math.max(first - 1, 0))
+  const width = $derived(NUT_X + FRET_W * (last - edge) + 8)
+  const wires = $derived(Array.from({ length: last - edge }, (_, i) => edge + i + 1))
+  const inlays = $derived(MARKED_FRETS.filter((f) => f >= first && f <= last))
+  const cropped = $derived(first > 0 || last < MAX_FRET)
+  const numbered = $derived(cropped ? wires : MARKED_FRETS)
+
+  const fretX = (f: number) => NUT_X + (f - edge) * FRET_W
   /** Where a note at fret `f` sits: just behind the fret wire, or left of the nut when open. */
   const noteX = (f: number) => (f === 0 ? NUT_X - 14 : fretX(f) - FRET_W / 2)
   const stringY = (s: BassString) => TOP + strings.findIndex((t) => t.name === s.name) * STRING_GAP
@@ -43,19 +53,21 @@
 </script>
 
 <svg viewBox="0 0 {width} {height}" role="img" aria-label={label}>
-  {#each MARKED_FRETS as f (f)}
+  {#each inlays as f (f)}
     {#if f === 12}
       <circle class="inlay" cx={noteX(f)} cy={middle - STRING_GAP} r="5" />
       <circle class="inlay" cx={noteX(f)} cy={middle + STRING_GAP} r="5" />
     {:else}
       <circle class="inlay" cx={noteX(f)} cy={middle} r="5" />
     {/if}
+  {/each}
+  {#each numbered as f (f)}
     <text class="fret-number" x={noteX(f)} y={height - 4}>{f}</text>
   {/each}
 
-  <line class="nut" x1={NUT_X} x2={NUT_X} y1={TOP - 6} y2={bottom + 6} />
-  {#each { length: MAX_FRET } as _, i (i)}
-    <line class="fret" x1={fretX(i + 1)} x2={fretX(i + 1)} y1={TOP - 6} y2={bottom + 6} />
+  <line class={edge === 0 ? 'nut' : 'fret'} x1={NUT_X} x2={NUT_X} y1={TOP - 6} y2={bottom + 6} />
+  {#each wires as f (f)}
+    <line class="fret" x1={fretX(f)} x2={fretX(f)} y1={TOP - 6} y2={bottom + 6} />
   {/each}
 
   {#each strings as s (s.name)}

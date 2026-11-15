@@ -4,7 +4,7 @@ import { type DrillOptions, type DrillState, answer, isFinished, next, reveal, s
 import type { PromptOptions } from './prompts'
 
 const [E] = STANDARD_TUNING
-const options: PromptOptions = { string: E, range: { from: 0, to: 21, markedOnly: true } }
+const options: PromptOptions = { string: E, octave: { start: 0, markedOnly: true } }
 
 /** A drill prompting for A on the E string. */
 const promptingA: DrillState = {
@@ -71,10 +71,10 @@ describe('drill', () => {
   })
 })
 
-// E string, full neck: all twelve pitch classes, both spellings of each accidental.
-const fullNeck: PromptOptions = { string: E, range: { from: 0, to: 24, markedOnly: false } }
-// Frets 0–1 on the E string: only E and F.
-const twoNotes: PromptOptions = { string: E, range: { from: 0, to: 1, markedOnly: false } }
+// E string, open to fret 11: all twelve pitch classes, both spellings of each accidental.
+const fullNeck: PromptOptions = { string: E, octave: { start: 0, markedOnly: false } }
+// Marked frets 3–9 on the E string, in sharps: C♯, G, A and B.
+const fourNotes: PromptOptions = { string: E, octave: { start: 0, markedOnly: true }, accidentals: 'sharps' }
 // Always dealing the lowest candidate, so a drill runs C, C♯, D, D♭, D♯, E, E♭, …
 const lowest = () => 0
 
@@ -115,16 +115,18 @@ describe('rounds', () => {
   })
 
   it('finishes a limited drill when its last dealt prompt is answered, dropping pending reviews', () => {
-    const options: DrillOptions = { ...twoNotes, rounds: 1 }
-    const first = miss(start(options, lowest, 0))
-    expect(isFinished(first, options)).toBe(false)
-    const last = right(next(first, options, lowest, 0))
+    // C♯ is missed and reviewed once; B, the last dealt prompt, leaves its second review pending.
+    const options: DrillOptions = { ...fourNotes, rounds: 1 }
+    expect(isFinished(run([miss, ...rights(2)], options).state, options)).toBe(false)
+    let state = start(options, lowest, 0)
+    for (const play of [miss, ...rights(3)]) state = next(play(state), options, lowest, 0)
+    const last = right(state)
     expect(last.reviews).toHaveLength(1)
     expect(isFinished(last, options)).toBe(true)
   })
 
   it('never finishes an open-ended drill', () => {
-    const options: DrillOptions = { ...twoNotes, rounds: null }
+    const options: DrillOptions = { ...fourNotes, rounds: null }
     expect(isFinished(run(rights(10), options).state, options)).toBe(false)
   })
 })
@@ -154,8 +156,8 @@ describe('progress', () => {
   })
 
   it('earns a whole step for dealing a spelling under review, leaving its reviews owed', () => {
-    // E is missed, dealt cleanly in the next round, then reviewed.
-    expect(run([miss, ...rights(4)], twoNotes).state.earned).toBe(3.5)
+    // C♯ is missed, reviewed once, then dealt cleanly in the next round.
+    expect(run([miss, ...rights(5)], fourNotes).state.earned).toBe(4.5)
   })
 
   it('never earns more than the dealt prompts, and earns them all once reviews are done', () => {
@@ -214,11 +216,10 @@ describe('reviews', () => {
   })
 
   it('may deal a spelling under review, leaving its reviews be', () => {
-    // E is missed, then dealt again in the next round; its review still comes after.
-    const { asked, state } = run([miss, right, right, right], twoNotes)
-    expect(asked).toEqual(['E', 'F', 'E', 'F'])
-    expect(state.prompt.spelling).toBe('E')
-    expect(state.reviewing).toBe(true)
-    expect(state.dealt).toBe(4)
+    // C♯ is missed, reviewed once, then dealt again in the next round; its second review still comes after.
+    const { asked, state } = run([miss, ...rights(9)], fourNotes)
+    expect(asked).toEqual(['C♯', 'G', 'A', 'C♯', 'B', 'C♯', 'G', 'A', 'B', 'C♯'])
+    expect(state.reviewing).toBe(false)
+    expect(state.reviews).toEqual([])
   })
 })

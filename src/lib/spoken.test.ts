@@ -39,24 +39,19 @@ describe('spokenWrong', () => {
 })
 
 describe('spokenReveal', () => {
-  it('names one fret', () => {
-    expect(spokenReveal([6])).toBe('Fret 6.')
-  })
-
-  it('names every fret', () => {
-    expect(spokenReveal([6, 18])).toBe('Fret 6 or 18.')
+  it('names the fret', () => {
+    expect(spokenReveal(6)).toBe('Fret 6.')
   })
 
   it('names the open string', () => {
-    expect(spokenReveal([0])).toBe('Open.')
-    expect(spokenReveal([0, 12, 24])).toBe('Open or fret 12 or 24.')
+    expect(spokenReveal(0)).toBe('Open.')
   })
 })
 
 describe('clipFile', () => {
   it('names a clip after its phrase', () => {
     expect(clipFile('That was G flat.')).toBe('that-was-g-flat.mp3')
-    expect(clipFile('Open or fret 12 or 24.')).toBe('open-or-fret-12-or-24.mp3')
+    expect(clipFile('Fret 12.')).toBe('fret-12.mp3')
   })
 })
 
@@ -66,8 +61,8 @@ describe('everyPhrase', () => {
   it('covers every prompt, wrong answer and reveal', () => {
     expect(phrases).toContain('A sharp.')
     expect(phrases.filter((p) => p.startsWith('That was'))).toHaveLength(17)
-    expect(phrases.filter((p) => p.startsWith('Fret') || p.startsWith('Open'))).toHaveLength(39)
-    expect(phrases).toHaveLength(17 + 17 + 39)
+    expect(phrases.filter((p) => p.startsWith('Fret') || p.startsWith('Open'))).toHaveLength(25)
+    expect(phrases).toHaveLength(17 + 17 + 25)
   })
 
   it('gives every phrase its own clip', () => {
