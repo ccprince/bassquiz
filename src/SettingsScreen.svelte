@@ -2,6 +2,7 @@
   import type { Frame } from './lib/attack'
   import { type Accidentals, STANDARD_TUNING } from './lib/notes'
   import { OCTAVE_FRETS, fretsIn, roundOf } from './lib/prompts'
+  import { RECENT_SECONDS } from './lib/listener'
   import { LAST_START, ROUND_CHOICES, type Settings } from './lib/settings'
   import Heard from './Heard.svelte'
   import LevelMeter from './LevelMeter.svelte'
@@ -12,10 +13,12 @@
     listening: boolean
     micError: string | null
     onlisten: () => void
+    /** Saves the recent mic input, when offered. */
+    onsave: (() => void) | null
     onstart: () => void
   }
 
-  let { settings = $bindable(), frame, listening, micError, onlisten, onstart }: Props = $props()
+  let { settings = $bindable(), frame, listening, micError, onlisten, onsave, onstart }: Props = $props()
 
   const ACCIDENTALS: { value: Accidentals; label: string }[] = [
     { value: 'sharps', label: '♯ Sharps' },
@@ -128,6 +131,9 @@
     {#if listening}
       <LevelMeter level={frame?.level ?? 0} gate={settings.gate} />
       <p class="muted">Heard: <Heard {frame} gate={settings.gate} accidentals={settings.accidentals} /></p>
+      {#if onsave}
+        <button class="secondary" onclick={onsave}>Save last {RECENT_SECONDS} seconds</button>
+      {/if}
     {:else}
       <button class="secondary" onclick={onlisten}>Check input</button>
     {/if}

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { type Answer, AttackDetector, type Frame } from './lib/attack'
   import { type Listener, listen } from './lib/listener'
+  import { encodeWav } from './lib/recording'
   import type { FinishedDrill } from './lib/results'
   import { loadSettings, saveSettings } from './lib/settings'
   import DrillScreen from './DrillScreen.svelte'
@@ -49,6 +50,20 @@
     }
   }
 
+  /** `?debug` in the URL offers saving the mic input, to study what the pitch tracker heard. */
+  const debug = new URLSearchParams(window.location.search).has('debug')
+
+  function saveRecording() {
+    if (!listener) return
+    const { samples, sampleRate } = listener.recent()
+    const url = URL.createObjectURL(new Blob([encodeWav(samples, sampleRate)], { type: 'audio/wav' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `bassquiz-${new Date().toISOString().replace(/[:.]/g, '-')}.wav`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   async function startDrill() {
     if (await startListening()) screen = 'drill'
   }
@@ -68,7 +83,15 @@
 
 <main>
   {#if screen === 'settings'}
-    <SettingsScreen bind:settings {frame} {listening} {micError} onlisten={startListening} onstart={startDrill} />
+    <SettingsScreen
+      bind:settings
+      {frame}
+      {listening}
+      {micError}
+      onlisten={startListening}
+      onsave={debug ? saveRecording : null}
+      onstart={startDrill}
+    />
   {:else if screen === 'results' && finished}
     <ResultsScreen
       {...finished}
