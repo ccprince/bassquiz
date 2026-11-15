@@ -21,11 +21,13 @@ and encoded as MP3. Reads the phrases as JSON on stdin (from phrases.mjs) and wr
 given, removing clips no longer needed. Run it through `npm run clips`.
 """
 import json
+import re
 import sys
 from pathlib import Path
 
 import lameenc
 import numpy as np
+import torch
 from kokoro import KPipeline
 
 VOICE = "af_heart"
@@ -39,6 +41,37 @@ LEAD_MS = 20
 TAIL_MS = 80
 # Fading the cut edges stops them clicking.
 FADE_MS = 15
+
+# Said on its own, a note's pitch falls then rises, so it is said at the end of a sentence, where the pitch falls,
+# and cut out. A and F run on from the "z" of "was", so they come from a sentence with a pause before the note.
+CARRIER = "That was {}."
+CARRIERS = {"A": "Next note, {}.", "F": "Next note, {}."}
+# The cut goes at the quietest point this close to where Kokoro says the note starts.
+CUT_BEFORE_MS = 60
+CUT_AFTER_MS = 30
+
+
+def spoken(phrase: str) -> str:
+    """Spells out the note A in Kokoro's phoneme markup; before another word ("A flat.") it is read as the
+    article "uh"."""
+    return re.sub(r"\bA\b", "[A](/ˈA/)", phrase)
+
+
+def synthesize(pipeline: KPipeline, phrase: str) -> np.ndarray:
+    note = re.fullmatch(r"([A-G])\.", phrase)
+    if not note:
+        return np.concatenate([r.audio.numpy() for r in pipeline(spoken(phrase), voice=VOICE, speed=SPEED)])
+    sentence = CARRIERS.get(note[1], CARRIER).format(note[1])
+    (result,) = pipeline(spoken(sentence), voice=VOICE, speed=SPEED)
+    audio = result.audio.numpy()
+    return audio[quietest(audio, result.tokens[-1].start_ts):]
+
+
+def quietest(audio: np.ndarray, seconds: float) -> int:
+    at = int(seconds * RATE)
+    window = RATE // 200
+    starts = range(max(0, at - RATE * CUT_BEFORE_MS // 1000), at + RATE * CUT_AFTER_MS // 1000, window // 2)
+    return starts[int(np.argmin([np.abs(audio[i:i + window]).max() for i in starts]))]
 
 
 def trim(audio: np.ndarray) -> np.ndarray:
@@ -69,8 +102,9 @@ def main() -> None:
     phrases = json.load(sys.stdin)
     pipeline = KPipeline(lang_code="a", repo_id="hexgrad/Kokoro-82M")
     for entry in phrases:
-        audio = np.concatenate([r.audio.numpy() for r in pipeline(entry["phrase"], voice=VOICE, speed=SPEED)])
-        (out / entry["file"]).write_bytes(mp3(trim(audio)))
+        # Kokoro starts each phrase from random noise; a fixed seed makes a rerun rewrite only the clips that changed.
+        torch.manual_seed(0)
+        (out / entry["file"]).write_bytes(mp3(trim(synthesize(pipeline, entry["phrase"]))))
         print(entry["file"], flush=True)
     wanted = {entry["file"] for entry in phrases}
     for stale in out.glob("*.mp3"):
