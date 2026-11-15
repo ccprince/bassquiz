@@ -6,11 +6,13 @@
   import { fretOf, fretsIn } from './lib/prompts'
   import type { FinishedDrill } from './lib/results'
   import type { Settings } from './lib/settings'
+  import type { Shortcut } from './lib/shortcuts'
   import { spokenPrompt, spokenReveal, spokenWrong } from './lib/spoken'
   import { CORRECT_CHIME, FINISHED_CHIME, Voice } from './lib/voice'
   import Fretboard from './Fretboard.svelte'
   import Heard from './Heard.svelte'
   import LevelMeter from './LevelMeter.svelte'
+  import Shortcuts from './Shortcuts.svelte'
 
   interface Props {
     settings: Settings
@@ -51,6 +53,7 @@
 
   const fret = $derived(fretOf(drill.prompt.pitchClass, drill.prompt.string, fretsIn(options.octave)) as number)
   const showFretboard = $derived(drill.status === 'correct' || drill.status === 'revealed')
+  const canReveal = $derived(drill.status === 'waiting' || drill.status === 'wrong')
 
   onMount(() => {
     ignoreCurrent()
@@ -88,11 +91,23 @@
     drill = reveal(drill)
     voice?.say(spokenReveal(fret))
   }
+
+  function repeat() {
+    if (drill.status !== 'correct') voice?.say(spokenPrompt(drill.prompt))
+  }
+
+  const shortcuts: Shortcut[] = [
+    { keys: ['Escape'], does: 'Stop the drill', run: stop },
+    { keys: [' '], does: 'Reveal the note', run: () => canReveal && showReveal() },
+    ...(voice ? [{ keys: ['r'], does: 'Say the prompt again', run: repeat }] : []),
+  ]
 </script>
+
+<Shortcuts {shortcuts} />
 
 <div class="screen drill">
   <header>
-    <button class="secondary" onclick={stop}>Stop</button>
+    <button class="secondary" onclick={stop} aria-keyshortcuts="Escape">Stop<kbd class="hint">Esc</kbd></button>
     <div class="input">
       <LevelMeter level={frame?.level ?? 0} gate={settings.gate} />
       <span class="muted small">Heard: <Heard {frame} gate={settings.gate} accidentals={options.accidentals} /></span>
@@ -140,8 +155,8 @@
     {/if}
   </div>
 
-  <button class="secondary reveal" onclick={showReveal} disabled={drill.status !== 'waiting' && drill.status !== 'wrong'}>
-    Reveal
+  <button class="secondary reveal" onclick={showReveal} disabled={!canReveal} aria-keyshortcuts="Space">
+    Reveal<kbd class="hint">Space</kbd>
   </button>
 </div>
 

@@ -4,8 +4,10 @@
   import { OCTAVE_FRETS, fretsIn, roundOf } from './lib/prompts'
   import { RECENT_SECONDS } from './lib/listener'
   import { LAST_START, ROUND_CHOICES, type Settings } from './lib/settings'
+  import type { Shortcut } from './lib/shortcuts'
   import Heard from './Heard.svelte'
   import LevelMeter from './LevelMeter.svelte'
+  import Shortcuts from './Shortcuts.svelte'
 
   interface Props {
     settings: Settings
@@ -40,7 +42,18 @@
   )
 
   const gateDb =$derived(Math.round(20 * Math.log10(settings.gate)))
+
+  const shortcuts: Shortcut[] = [
+    { keys: ['Enter'], does: 'Start the drill', run: () => onstart() },
+    {
+      keys: STANDARD_TUNING.map((s) => s.name),
+      does: 'Pick the string',
+      run: (name) => (settings.activeString = name),
+    },
+  ]
 </script>
+
+<Shortcuts {shortcuts} />
 
 <div class="screen">
   <h1>Fretboard drill</h1>
@@ -52,6 +65,7 @@
         <button
           class="toggle"
           aria-pressed={settings.activeString === string.name}
+          aria-keyshortcuts={string.name}
           onclick={() => (settings.activeString = string.name)}
         >
           {string.name}
@@ -157,7 +171,9 @@
     {/if}
   </section>
 
-  <button class="primary" onclick={onstart}>Start drill</button>
+  <button class="primary" onclick={onstart} aria-keyshortcuts="Enter">
+    Start drill<kbd class="hint">Enter</kbd>
+  </button>
 </div>
 
 <style>

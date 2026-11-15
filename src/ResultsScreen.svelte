@@ -2,6 +2,8 @@
   import { type FinishedDrill, type Grade, byNote, roundsReached, summarize, toWorkOn } from './lib/results'
   import Fretboard, { type Dot } from './Fretboard.svelte'
   import { OCTAVE_FRETS } from './lib/prompts'
+  import type { Shortcut } from './lib/shortcuts'
+  import Shortcuts from './Shortcuts.svelte'
 
   interface Props extends FinishedDrill {
     onagain: () => void
@@ -41,7 +43,28 @@
   }
   const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
   const string = $derived(options.string)
+
+  const alongNeck = $derived([...notes].sort((a, b) => a.fret - b.fret).map((n) => n.name))
+
+  /** Selects the next note up the neck, or down it, wrapping round at the ends. */
+  function step(by: 1 | -1) {
+    const at = selected === null ? (by === 1 ? -1 : 0) : alongNeck.indexOf(selected)
+    selected = alongNeck[(at + by + alongNeck.length) % alongNeck.length]
+  }
+
+  const shortcuts: Shortcut[] = [
+    { keys: ['Enter'], does: 'Drill again', run: () => onagain() },
+    { keys: ['Escape'], does: 'Back to settings', run: () => ondone() },
+    {
+      keys: ['ArrowLeft', 'ArrowRight'],
+      does: 'Show the note before or after',
+      run: (key) => step(key === 'ArrowRight' ? 1 : -1),
+    },
+    { keys: ['Backspace'], does: 'Hide the note', run: () => (selected = null) },
+  ]
 </script>
+
+<Shortcuts {shortcuts} />
 
 <div class="screen">
   <h1>Drill finished</h1>
@@ -101,7 +124,9 @@
         {/if}
       </div>
     {:else}
-      <p class="muted small">Tap a note for details.</p>
+      <p class="muted small">
+        Tap a note for details.<span class="hint"> Or step through them with <kbd>←</kbd> <kbd>→</kbd>.</span>
+      </p>
     {/if}
   </section>
 
@@ -124,8 +149,12 @@
   </section>
 
   <div class="actions">
-    <button class="secondary" onclick={ondone}>Settings</button>
-    <button class="primary" onclick={onagain}>Drill again</button>
+    <button class="secondary" onclick={ondone} aria-keyshortcuts="Escape">
+      Settings<kbd class="hint">Esc</kbd>
+    </button>
+    <button class="primary" onclick={onagain} aria-keyshortcuts="Enter">
+      Drill again<kbd class="hint">Enter</kbd>
+    </button>
   </div>
 </div>
 

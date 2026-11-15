@@ -122,3 +122,24 @@ input[type='range'] {
 p {
   margin: 0.5rem 0 0;
 }
+
+kbd {
+  font: inherit;
+  font-size: 0.75em;
+  font-weight: 500;
+  padding: 0.05em 0.4em;
+  border: 1px solid currentColor;
+  border-radius: 0.3em;
+  opacity: 0.75;
+}
+
+kbd.hint {
+  margin-left: 0.5em;
+}
+
+/* Key hints are for keyboards; a phone or tablet has none to press. */
+@media (hover: none) and (pointer: coarse) {
+  .hint {
+    display: none;
+  }
+}
