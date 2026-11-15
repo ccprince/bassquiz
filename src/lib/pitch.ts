@@ -5,6 +5,11 @@ import { frequencyToMidi } from './notes'
 const MIN_HZ = 28
 const MAX_HZ = 500
 const MIN_CLARITY = 0.85
+/**
+ * How close to the best repeat a shorter one must come to be taken as the pitch. Pitchy's 0.9 lets a loud 3rd
+ * harmonic win, reading the note as the fifth above it, as a webcam mic did with fret 3 on the E string.
+ */
+const PEAK_THRESHOLD = 0.95
 
 /** Finds the level and pitch of a buffer of audio samples. */
 export class PitchTracker {
@@ -12,6 +17,7 @@ export class PitchTracker {
 
   constructor(bufferSize: number) {
     this.detector = PitchDetector.forFloat32Array(bufferSize)
+    this.detector.clarityThreshold = PEAK_THRESHOLD
   }
 
   analyse(samples: Float32Array, sampleRate: number): { level: number; midi: number | null } {
