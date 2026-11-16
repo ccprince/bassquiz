@@ -69,6 +69,10 @@ _Avoid_: Fret range, position, window
 The onset of a newly played note. Each attack yields at most one answer; sound still ringing from before a prompt is not an answer.
 _Avoid_: Note-on, pluck
 
+**Damp**:
+Silencing the string after a correct answer, to say you're ready for the next prompt. The drill moves on once the string falls silent (but never before the chime has finished), or after a short pause if it keeps ringing.
+_Avoid_: Mute, stop, skip
+
 **Reveal**:
 Showing the player where the prompted note lies, after which they must still play it to move on.
 _Avoid_: Give up, skip

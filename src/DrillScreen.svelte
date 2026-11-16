@@ -8,7 +8,7 @@
   import type { Settings } from './lib/settings'
   import type { Shortcut } from './lib/shortcuts'
   import { spokenPrompt, spokenReveal, spokenWrong } from './lib/spoken'
-  import { CORRECT_CHIME, FINISHED_CHIME, Voice } from './lib/voice'
+  import { CORRECT_CHIME, FINISHED_CHIME, Voice, chimeMs } from './lib/voice'
   import Fretboard from './Fretboard.svelte'
   import Heard from './Heard.svelte'
   import LevelMeter from './LevelMeter.svelte'
@@ -27,7 +27,10 @@
 
   let { settings, frame, onAnswer, ignoreCurrent, pauseAnswers, resumeAnswers, onstop }: Props = $props()
 
+  /** How long a correct answer stays up when the string keeps ringing. */
   const ADVANCE_MS = 1500
+  /** Damping moves on sooner, but never before the correct chime has finished. */
+  const DAMPED_ADVANCE_MS = chimeMs(CORRECT_CHIME)
 
   // Settings can't change during a drill, so read them once.
   const options = untrack(() => ({
@@ -44,6 +47,9 @@
   const startedAt = performance.now()
   let drill = $state(start(options, Math.random, startedAt))
   let advanceTimer: ReturnType<typeof setTimeout> | undefined
+  /** When the current prompt was answered right, while waiting to move on to another; not while finishing. */
+  let correctAt: number | null = null
+  let finishing = $state(false)
   const voice = untrack(() => settings.spokenPrompts)
     ? new Voice(
         () => pauseAnswers(),
@@ -65,6 +71,8 @@
       if (drill.status === 'correct') {
         const finished = isFinished(drill, options)
         voice?.chime(finished ? FINISHED_CHIME : CORRECT_CHIME)
+        if (finished) finishing = true
+        else correctAt = performance.now()
         advanceTimer = setTimeout(finished ? stop : advance, ADVANCE_MS)
       } else {
         voice?.say(spokenWrong(heard.midi, prompt, options.accidentals))
@@ -77,11 +85,20 @@
     }
   })
 
+  // Damping the string, once the chime is done, says the player is ready for the next prompt.
+  $effect(() => {
+    const level = frame?.level
+    if (level === undefined || correctAt === null) return
+    if (level < settings.gate && performance.now() - correctAt >= DAMPED_ADVANCE_MS) advance()
+  })
+
   function stop() {
     onstop({ results: drill.results, options, dealt: drill.dealt, durationMs: performance.now() - startedAt })
   }
 
   function advance() {
+    clearTimeout(advanceTimer)
+    correctAt = null
     drill = next(drill, options, Math.random, performance.now())
     ignoreCurrent()
     voice?.say(spokenPrompt(drill.prompt))
@@ -136,6 +153,7 @@
   <div class="feedback {drill.status}" aria-live="polite">
     {#if drill.status === 'correct'}
       ✓ Correct
+      {#if !finishing}<div class="muted small">Damp the string to go on</div>{/if}
     {:else if drill.heard}
       ✗ You played {noteName(drill.heard.midi, options.accidentals)}
     {:else if drill.status === 'revealed'}

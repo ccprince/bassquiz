@@ -6,6 +6,13 @@ export const FINISHED_CHIME: readonly number[] = [1046.5, 1318.5, 1568] // C6 E6
 
 const TONE_GAP_S = 0.12
 const TONE_RING_S = 0.4
+/** A chime starts this far ahead, so its first tone isn't clipped. */
+const CHIME_LEAD_S = 0.02
+/** How long a chime lasts, from being asked for until answers resume. */
+export function chimeMs(tones: readonly number[]): number {
+  return (CHIME_LEAD_S + (tones.length - 1) * TONE_GAP_S + TONE_RING_S) * 1000 + TAIL_MS
+}
+
 /**
  * How long after the app falls silent before answers resume: long enough for the pitch tracker's buffer
  * (about 85 ms) to hold only what was played since, as a note held steady through the speech is answered on
@@ -53,7 +60,7 @@ export class Voice {
 
   chime(tones: readonly number[]): void {
     const generation = this.begin()
-    const start = this.context.currentTime + 0.02
+    const start = this.context.currentTime + CHIME_LEAD_S
     const oscillators = tones.map((hz, i) => {
       const at = start + i * TONE_GAP_S
       const oscillator = this.context.createOscillator()

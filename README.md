@@ -2,6 +2,8 @@
 
 A browser app for learning the bass fretboard. It names a note and a string, listens through the microphone, and tells you whether you played it.
 
+After a correct answer, damp the string to move straight on to the next prompt; otherwise the drill moves on after a short pause.
+
 See [GLOSSARY.md](./GLOSSARY.md) for the project's vocabulary.
 
 ```sh
