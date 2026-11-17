@@ -61,7 +61,7 @@
   <section>
     <h2>String</h2>
     <div class="strings">
-      {#each [...STANDARD_TUNING].reverse() as string (string.name)}
+      {#each STANDARD_TUNING as string (string.name)}
         <button
           class="toggle"
           aria-pressed={settings.activeString === string.name}
