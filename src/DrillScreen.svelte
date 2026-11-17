@@ -3,11 +3,11 @@
   import type { Answer, Frame } from './lib/attack'
   import { answer, isFinished, next, reveal, start, totalDealt } from './lib/drill'
   import { STANDARD_TUNING, noteName } from './lib/notes'
-  import { fretOf, fretsIn } from './lib/prompts'
+  import { fretOf, fretsIn, judge } from './lib/prompts'
   import type { FinishedDrill } from './lib/results'
   import type { Settings } from './lib/settings'
   import type { Shortcut } from './lib/shortcuts'
-  import { spokenPrompt, spokenReveal, spokenWrong } from './lib/spoken'
+  import { SPOKEN_WRONG_OCTAVE, spokenPrompt, spokenReveal, spokenWrong } from './lib/spoken'
   import { CORRECT_CHIME, FINISHED_CHIME, Voice, chimeMs } from './lib/voice'
   import Fretboard from './Fretboard.svelte'
   import Heard from './Heard.svelte'
@@ -74,6 +74,8 @@
         if (finished) finishing = true
         else correctAt = performance.now()
         advanceTimer = setTimeout(finished ? stop : advance, ADVANCE_MS)
+      } else if (judge(prompt, heard.midi) === 'wrongOctave') {
+        voice?.say(SPOKEN_WRONG_OCTAVE)
       } else {
         voice?.say(spokenWrong(heard.midi, prompt, options.accidentals))
       }
@@ -154,6 +156,8 @@
     {#if drill.status === 'correct'}
       ✓ Correct
       {#if !finishing}<div class="muted small">Damp the string to go on</div>{/if}
+    {:else if drill.heard && judge(drill.prompt, drill.heard.midi) === 'wrongOctave'}
+      ✗ Wrong octave
     {:else if drill.heard}
       ✗ You played {noteName(drill.heard.midi, options.accidentals)}
     {:else if drill.status === 'revealed'}

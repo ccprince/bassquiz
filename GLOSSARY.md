@@ -22,6 +22,9 @@ _Avoid_: Dot fret, inlay
 **Pitch class**:
 A note name independent of octave; all As share one pitch class.
 
+**Pitch**:
+A note at a specific height. The A at fret 5 of the E string and the A at fret 17 share a pitch class but not a pitch.
+
 **Spelling**:
 The written name used for a pitch class. Enharmonic spellings (A♯ / B♭) name the same pitch class and are equally correct.
 
@@ -32,18 +35,21 @@ A request to play a named pitch class on a named string, e.g. "A on the E string
 _Avoid_: Question, challenge
 
 **Spoken prompt**:
-A prompt said aloud, so the player needn't watch the screen. It names only the spelling ("A sharp"); the player already knows the active string. A drill with spoken prompts also gives its feedback as sound: a chime when right, the note played when wrong, the fret when revealed, and a closing chime when a limited drill finishes. Sound the app makes is never taken as an answer.
+A prompt said aloud, so the player needn't watch the screen. It names only the spelling ("A sharp"); the player already knows the active string. A drill with spoken prompts also gives its feedback as sound: a chime when right, the note played when wrong, "wrong octave" for a wrong octave, the fret when revealed, and a closing chime when a limited drill finishes. Sound the app makes is never taken as an answer.
 _Avoid_: Audio prompt, TTS, narration
 
 **Answer**:
-The note the player plays in response to a prompt; correct when its pitch class matches the prompt's. The string is taken on trust.
+The note the player plays in response to a prompt; correct when its pitch matches the prompt's pitch: its pitch class where it lies in the drill's octave. The string is taken on trust, so the same pitch played on another string is correct.
+
+**Wrong octave**:
+An answer with the prompt's pitch class but not its pitch. It is retried, and is neither correct nor a miss.
 
 **Drill**:
 An untimed run of prompts with immediate right/wrong feedback, either open-ended or limited to a number of rounds; a wrong answer is retried until correct. A drill remembers its misses until it stops, then shows its results; nothing is saved.
 _Avoid_: Practice session, exercise
 
 **Miss**:
-A prompt whose first answer was wrong, or that was revealed. A miss counts against the prompt's spelling, not its whole pitch class: missing A♯ says nothing about B♭.
+A prompt that drew an answer with the wrong pitch class, or that was revealed; a wrong octave alone is not a miss. A miss counts against the prompt's spelling, not its whole pitch class: missing A♯ says nothing about B♭.
 _Avoid_: Mistake, error
 
 **Results**:

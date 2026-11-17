@@ -7,7 +7,7 @@ import {
   canFollow,
   deal,
   fretsIn,
-  isCorrect,
+  judge,
   fretOf,
   pitchClassesOnString,
   roundOf,
@@ -90,7 +90,7 @@ describe('roundOf', () => {
   })
 })
 
-const prompt = (spelling: string, pitchClass: number): Prompt => ({ string: E, pitchClass, spelling })
+const prompt = (spelling: string, pitchClass: number): Prompt => ({ string: E, pitchClass, spelling, midi: 24 + pitchClass })
 const A_ = prompt('A', 9)
 const As = prompt('A♯', 10)
 const Bb = prompt('B♭', 10)
@@ -130,7 +130,7 @@ describe('deal', () => {
   it('never strands a sharp next to its flat', () => {
     // A♯, B♭ and B. Dealing B first would leave A♯ and B♭ to follow each other.
     const deck = [As, Bb, B]
-    const previous: Prompt = { string: E, pitchClass: 9, spelling: 'A' }
+    const previous: Prompt = { string: E, pitchClass: 9, spelling: 'A', midi: 33 }
     for (const r of [0, 0.5, 0.99]) expect(deal(deck, () => r, previous).spelling).not.toBe('B')
   })
 
@@ -156,15 +156,27 @@ describe('canFollow', () => {
   })
 })
 
-describe('isCorrect', () => {
-  const prompt: Prompt = { string: E, pitchClass: 9, spelling: 'A' }
+describe('roundOf pitches', () => {
+  it('places each prompt at its fret within the octave', () => {
+    const round = roundOf({ string: E, octave: { start: 5, markedOnly: false } })
+    expect(round.find((p) => p.spelling === 'A')?.midi).toBe(33) // fret 5
+    expect(round.find((p) => p.spelling === 'G')?.midi).toBe(43) // fret 15
+  })
+})
 
-  it('accepts the prompted pitch class in any octave', () => {
-    expect(isCorrect(prompt, 33)).toBe(true) // A1
-    expect(isCorrect(prompt, 45)).toBe(true) // A2
+describe('judge', () => {
+  const prompt: Prompt = { string: E, pitchClass: 9, spelling: 'A', midi: 33 }
+
+  it('accepts the prompted pitch', () => {
+    expect(judge(prompt, 33)).toBe('correct')
+  })
+
+  it('calls the prompted pitch class in another octave a wrong octave', () => {
+    expect(judge(prompt, 45)).toBe('wrongOctave')
+    expect(judge(prompt, 21)).toBe('wrongOctave')
   })
 
   it('rejects any other pitch class', () => {
-    expect(isCorrect(prompt, 34)).toBe(false)
+    expect(judge(prompt, 34)).toBe('wrong')
   })
 })

@@ -5,7 +5,7 @@ import { clipFile, everyPhrase, spokenPrompt, spokenReveal, spokenSpelling, spok
 
 const [E] = STANDARD_TUNING
 
-const prompt = (spelling: string, pitchClass: number): Prompt => ({ string: E, pitchClass, spelling })
+const prompt = (spelling: string, pitchClass: number): Prompt => ({ string: E, pitchClass, spelling, midi: 28 + ((pitchClass + 8) % 12) })
 
 describe('spokenSpelling', () => {
   it('writes accidentals out as words', () => {
@@ -58,11 +58,12 @@ describe('clipFile', () => {
 describe('everyPhrase', () => {
   const phrases = everyPhrase()
 
-  it('covers every prompt, wrong answer and reveal', () => {
+  it('covers every prompt, wrong answer, wrong octave and reveal', () => {
     expect(phrases).toContain('A sharp.')
     expect(phrases.filter((p) => p.startsWith('That was'))).toHaveLength(17)
     expect(phrases.filter((p) => p.startsWith('Fret') || p.startsWith('Open'))).toHaveLength(25)
-    expect(phrases).toHaveLength(17 + 17 + 25)
+    expect(phrases).toContain('Wrong octave.')
+    expect(phrases).toHaveLength(17 + 17 + 1 + 25)
   })
 
   it('gives every phrase its own clip', () => {

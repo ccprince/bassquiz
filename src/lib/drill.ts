@@ -1,10 +1,10 @@
 import type { Answer } from './attack'
-import { type Prompt, type PromptOptions, type Random, canFollow, deal, isCorrect, roundOf } from './prompts'
+import { type Prompt, type PromptOptions, type Random, canFollow, deal, judge, roundOf } from './prompts'
 import type { PromptResult } from './results'
 
 /**
  * - waiting: the prompt is open
- * - wrong: the last answer was wrong; the prompt stays open
+ * - wrong: the last answer was a wrong note or a wrong octave; the prompt stays open
  * - revealed: the position is shown; the prompt stays open until played
  * - correct: answered; waiting to move on
  */
@@ -31,9 +31,9 @@ export interface DrillState {
   status: DrillStatus
   /** The most recent answer to this prompt. */
   heard: Answer | null
-  /** Whether this prompt has been missed: answered wrong first, or revealed. */
+  /** Whether this prompt has been missed: answered with a wrong pitch class, or revealed. */
   missed: boolean
-  /** Wrong answers to this prompt so far. */
+  /** Wrong answers to this prompt so far, not counting wrong octaves. */
   wrong: number
   /** When this prompt was shown, in milliseconds. */
   shownAt: number
@@ -80,7 +80,8 @@ export function start(options: PromptOptions, random: Random, now: number): Dril
 
 export function answer(state: DrillState, heard: Answer, now: number): DrillState {
   if (state.status === 'correct') return state
-  if (isCorrect(state.prompt, heard.midi)) {
+  const verdict = judge(state.prompt, heard.midi)
+  if (verdict === 'correct') {
     const result: PromptResult = {
       spelling: state.prompt.spelling,
       pitchClass: state.prompt.pitchClass,
@@ -93,6 +94,8 @@ export function answer(state: DrillState, heard: Answer, now: number): DrillStat
     return { ...state, status: 'correct', heard, dealt, earned, results: [...state.results, result] }
   }
   const status = state.status === 'revealed' ? 'revealed' : 'wrong'
+  // A wrong octave is retried like a wrong note, but isn't held against the prompt.
+  if (verdict === 'wrongOctave') return { ...state, status, heard }
   return { ...state, status, heard, missed: true, wrong: state.wrong + 1 }
 }
 

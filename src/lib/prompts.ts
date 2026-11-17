@@ -15,6 +15,8 @@ export interface Prompt {
   string: BassString
   pitchClass: PitchClass
   spelling: string
+  /** The pitch to play: the pitch class where it lies in the drill's octave. */
+  midi: number
 }
 
 export interface PromptOptions {
@@ -48,9 +50,11 @@ function pick<T>(items: readonly T[], random: Random): T {
 /** Every prompt a round asks: one per spelling in the octave, lowest pitch class first. */
 export function roundOf(options: PromptOptions): Prompt[] {
   const { string } = options
-  return pitchClassesOnString(string, fretsIn(options.octave)).flatMap((pitchClass) =>
-    spellingsOf(pitchClass, options.accidentals).map((spelling) => ({ string, pitchClass, spelling })),
-  )
+  const frets = fretsIn(options.octave)
+  return pitchClassesOnString(string, frets).flatMap((pitchClass) => {
+    const midi = string.openMidi + (fretOf(pitchClass, string, frets) as number)
+    return spellingsOf(pitchClass, options.accidentals).map((spelling) => ({ string, pitchClass, spelling, midi }))
+  })
 }
 
 /**
@@ -74,7 +78,15 @@ function without(deck: readonly Prompt[], prompt: Prompt): Prompt[] {
   return deck.filter((p) => p !== prompt)
 }
 
-/** An answer is correct when its pitch class matches; the string is taken on trust. */
-export function isCorrect(prompt: Prompt, midi: number): boolean {
-  return pitchClassOf(midi) === prompt.pitchClass
+/**
+ * - correct: the prompt's pitch
+ * - wrongOctave: the prompt's pitch class, but not its pitch
+ * - wrong: any other pitch class
+ */
+export type Verdict = 'correct' | 'wrongOctave' | 'wrong'
+
+/** Judges an answer by its pitch; the string is taken on trust, so the same pitch on another string is correct. */
+export function judge(prompt: Prompt, midi: number): Verdict {
+  if (midi === prompt.midi) return 'correct'
+  return pitchClassOf(midi) === prompt.pitchClass ? 'wrongOctave' : 'wrong'
 }

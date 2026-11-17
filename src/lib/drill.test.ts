@@ -8,7 +8,7 @@ const options: PromptOptions = { string: E, octave: { start: 0, markedOnly: true
 
 /** A drill prompting for A on the E string. */
 const promptingA: DrillState = {
-  prompt: { string: E, pitchClass: 9, spelling: 'A' },
+  prompt: { string: E, pitchClass: 9, spelling: 'A', midi: 33 },
   status: 'waiting',
   heard: null,
   missed: false,
@@ -32,9 +32,9 @@ describe('drill', () => {
   })
 
   it('marks a correct answer and records what was heard', () => {
-    const state = answer(promptingA, { midi: 45, cents: -3 }, 0)
+    const state = answer(promptingA, { midi: 33, cents: -3 }, 0)
     expect(state.status).toBe('correct')
-    expect(state.heard).toEqual({ midi: 45, cents: -3 })
+    expect(state.heard).toEqual({ midi: 33, cents: -3 })
   })
 
   it('marks a wrong answer, keeping the same prompt', () => {
@@ -48,8 +48,33 @@ describe('drill', () => {
     expect(state.status).toBe('correct')
   })
 
+  it('keeps the prompt open after a wrong octave, without counting it against it', () => {
+    const state = answer(promptingA, { midi: 45, cents: 0 }, 0)
+    expect(state.status).toBe('wrong')
+    expect(state.heard).toEqual({ midi: 45, cents: 0 })
+    expect(state.missed).toBe(false)
+    expect(state.wrong).toBe(0)
+  })
+
+  it('counts a wrong octave then the right pitch as right first time, timed to the right pitch', () => {
+    const state = answer(answer(promptingA, { midi: 45, cents: 0 }, 2000), { midi: 33, cents: 0 }, 4000)
+    expect(state.status).toBe('correct')
+    expect(state.earned).toBe(1)
+    expect(state.results).toEqual([{ spelling: 'A', pitchClass: 9, wrong: 0, revealed: false, ms: 3000 }])
+  })
+
+  it('still misses a prompt answered with a wrong note after a wrong octave', () => {
+    const state = answer(answer(promptingA, { midi: 45, cents: 0 }, 0), { midi: 44, cents: 0 }, 0)
+    expect(state.missed).toBe(true)
+    expect(state.wrong).toBe(1)
+  })
+
+  it('stays revealed after a wrong octave', () => {
+    expect(answer(reveal(promptingA), { midi: 45, cents: 0 }, 0).status).toBe('revealed')
+  })
+
   it('ignores answers once the prompt is answered correctly', () => {
-    const correct = answer(promptingA, { midi: 45, cents: 0 }, 0)
+    const correct = answer(promptingA, { midi: 33, cents: 0 }, 0)
     expect(answer(correct, { midi: 44, cents: 0 }, 0)).toBe(correct)
   })
 
@@ -59,11 +84,11 @@ describe('drill', () => {
     const wrong = answer(revealed, { midi: 44, cents: 0 }, 0)
     expect(wrong.status).toBe('revealed')
     expect(wrong.heard).toEqual({ midi: 44, cents: 0 })
-    expect(answer(wrong, { midi: 45, cents: 0 }, 0).status).toBe('correct')
+    expect(answer(wrong, { midi: 33, cents: 0 }, 0).status).toBe('correct')
   })
 
   it('moves on to a different prompt', () => {
-    const correct = answer(promptingA, { midi: 45, cents: 0 }, 0)
+    const correct = answer(promptingA, { midi: 33, cents: 0 }, 0)
     const state = next(correct, options, Math.random, 0)
     expect(state.status).toBe('waiting')
     expect(state.heard).toBeNull()
@@ -78,9 +103,10 @@ const fourNotes: PromptOptions = { string: E, octave: { start: 0, markedOnly: tr
 // Always dealing the lowest candidate, so a drill runs C, C♯, D, D♭, D♯, E, E♭, …
 const lowest = () => 0
 
-const right = (state: DrillState) => answer(state, { midi: 36 + state.prompt.pitchClass, cents: 0 }, 0)
-const wrong = (state: DrillState) => answer(state, { midi: 37 + state.prompt.pitchClass, cents: 0 }, 0)
+const right = (state: DrillState) => answer(state, { midi: state.prompt.midi, cents: 0 }, 0)
+const wrong = (state: DrillState) => answer(state, { midi: state.prompt.midi + 1, cents: 0 }, 0)
 const miss = (state: DrillState) => right(wrong(state))
+const octaveSlip = (state: DrillState) => right(answer(state, { midi: state.prompt.midi + 12, cents: 0 }, 0))
 const rights = (n: number) => Array<typeof right>(n).fill(right)
 
 /** Plays a drill, answering each prompt with `play`; returns the spellings asked. */
@@ -134,6 +160,12 @@ describe('rounds', () => {
 describe('progress', () => {
   it('earns a whole step for a dealt prompt answered right first time', () => {
     expect(run(rights(3)).state.earned).toBe(3)
+  })
+
+  it('treats a wrong octave, once corrected, as right first time', () => {
+    const { state } = run([octaveSlip, ...rights(2)])
+    expect(state.earned).toBe(3)
+    expect(state.reviews).toEqual([])
   })
 
   it('earns nothing for a miss, even once corrected', () => {
